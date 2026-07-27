@@ -1,0 +1,114 @@
+#auto-musings_container .auto-musings-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#auto-musings_container .auto-musings-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+  border-radius: 999px;
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.85em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#auto-musings_container .auto-musings-status[data-tone="active"] {
+  color: var(--SmartThemeEmColor, #8bd5ff);
+}
+
+#auto-musings_container .auto-musings-status[data-tone="idle"] {
+  color: var(--SmartThemeQuoteColor, #d8c48a);
+}
+
+#auto-musings_container .auto-musings-status[data-tone="disabled"] {
+  opacity: 0.65;
+}
+
+#auto-musings_container .auto-musings-enable {
+  margin-bottom: 10px;
+}
+
+#auto-musings_container .auto-musings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#auto-musings_container .auto-musings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+#auto-musings_container .auto-musings-field > span,
+#auto-musings_container .auto-musings-info-grid span {
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.9em;
+}
+
+#auto-musings_container .auto-musings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#auto-musings_container .auto-musings-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+#auto-musings_container .auto-musings-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#auto-musings_container .auto-musings-info-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  border-radius: 4px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.12));
+}
+
+#auto-musings_container .auto-musings-info-grid strong {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+#auto-musings_container .auto-musings-log {
+  min-height: 1.4em;
+  padding: 7px 8px;
+  border-left: 3px solid var(--SmartThemeEmColor, #8bd5ff);
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings-wand-btn .auto-musings-menu-icon {
+  color: var(--SmartThemeEmColor, #8bd5ff);
+}
+
+@media (max-width: 600px) {
+  #auto-musings_container .auto-musings-grid,
+  #auto-musings_container .auto-musings-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #auto-musings_container .auto-musings-actions button {
+    flex: 1 1 100%;
+  }
+}
