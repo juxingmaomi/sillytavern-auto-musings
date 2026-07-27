@@ -324,22 +324,10 @@
     recordEvent('已切换聊天，重新检查中');
   }
 
-  function restartTimers() {
-    if (state.checkTimer) clearInterval(state.checkTimer);
-    state.checkTimer = null;
-    if (!state.settings.enabled) {
-      state.isIdle = false;
-      state.idleStartTime = null;
-      stopMusingLoop();
-      return;
-    }
-
-    state.checkTimer = setInterval(checkIdle, state.settings.checkIntervalMinutes * 60 * 1000);
-    if (state.isIdle) {
+if (state.isIdle) {
       stopMusingLoop();
       startMusingLoop();
     }
-  }
 
   function getStatus() {
     if (!state.settings?.enabled) return { label: '已停用', tone: 'disabled' };
@@ -357,7 +345,7 @@
     const badge = root.querySelector('[data-auto-musings-status]');
     if (badge) {
       badge.textContent = status.label;
-      badge.dataset.tone = status.tone;
+    badge.dataset.tone = status.tone;
     }
 
     const enabled = root.querySelector('#auto-musings-enabled');

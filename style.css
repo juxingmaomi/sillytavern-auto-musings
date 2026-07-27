@@ -112,3 +112,236 @@
     flex: 1 1 100%;
   }
 }
+
+/* ===== v1.2.0 新增：种子词、高级区、悬浮按钮、漫想台小窗 ===== */
+
+#auto-musings_container .auto-musings-section {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  font-size: 0.9em;
+  color: var(--SmartThemeQuoteColor, inherit);
+}
+
+#auto-musings_container .auto-musings-seeds {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+
+#auto-musings_container .auto-musings-lore {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  border-radius: 4px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.12));
+}
+
+#auto-musings_container .auto-musings-hint {
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.82em;
+  opacity: 0.75;
+  margin-top: 4px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-open-console {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* ===== 悬浮按钮 ===== */
+#auto-musings-floating-button {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 99999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+  background: var(--SmartThemeBlurTintColor, rgba(20, 20, 30, 0.85));
+  color: var(--SmartThemeBodyColor, #eee);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s, background 0.15s;
+  user-select: none;
+}
+
+#auto-musings-floating-button:hover {
+  transform: scale(1.08);
+}
+
+#auto-musings-floating-button.active {
+  background: var(--SmartThemeEmColor, #8bd5ff);
+  color: #111;
+}
+
+#auto-musings-floating-button .amf-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #e0584b;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  display: none;
+}
+
+#auto-musings-floating-button .amf-badge.show {
+  display: block;
+}
+
+/* ===== 漫想台小窗 ===== */
+#auto-musings-floating-window {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 68px;
+  z-index: 99998;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: 60vh;
+  flex-direction: column;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+  background: var(--SmartThemeBlurTintColor, rgba(18, 18, 26, 0.96));
+  color: var(--SmartThemeBodyColor, #eee);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#auto-musings-floating-window.show {
+  display: flex;
+}
+
+#auto-musings-floating-window .amw-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  flex: 0 0 auto;
+}
+
+#auto-musings-floating-window .amw-title {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#auto-musings-floating-window .amw-tools {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+#auto-musings-floating-window .amw-tools button {
+  padding: 2px 8px;
+  font-size: 0.85em;
+  border-radius: 4px;
+}
+
+#auto-musings-floating-window .amw-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  padding: 6px;
+}
+
+#auto-musings-floating-window .amw-empty {
+  padding: 24px 8px;
+  text-align: center;
+  opacity: 0.55;
+  font-size: 0.9em;
+}
+
+.amw-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08));
+}
+
+.amw-entry .amw-time {
+  flex: 0 0 auto;
+  color: var(--SmartThemeQuoteColor, inherit);
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+.amw-entry .amw-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.78em;
+  white-space: nowrap;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+}
+
+.amw-entry.idle .amw-badge {
+  opacity: 0.45;
+}
+
+.amw-entry.idle {
+  opacity: 0.55;
+}
+
+.amw-entry.pushed {
+  border-color: rgba(139, 213, 255, 0.4);
+}
+
+.amw-entry .amw-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.amw-entry .amw-dec {
+  flex: 0 0 auto;
+  font-size: 0.78em;
+  opacity: 0.85;
+}
+
+.amw-entry .amw-dec.push {
+  color: var(--SmartThemeEmColor, #8bd5ff);
+}
+
+.amw-entry .amw-dec.hold {
+  opacity: 0.6;
+}
+
+.amw-entry .amw-manual {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(216, 196, 138, 0.25);
+}
+
+@media (max-width: 600px) {
+  #auto-musings-floating-window {
+    width: calc(100vw - 24px);
+    right: 12px;
+    bottom: 64px;
+    max-height: 55vh;
+  }
+}
