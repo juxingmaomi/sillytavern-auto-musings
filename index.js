@@ -9,14 +9,14 @@ const FLOAT_BTN_ID = 'auto-musings-floating-button';
 const FLOAT_WIN_ID = 'auto-musings-floating-window';
 
 const DEFAULT_SEED_WORDS = [
-  '\u52a8\u7269\u7684\u81ea\u6211\u8ba4\u77e5', '\u5b58\u5728\u4e3b\u4e49', '\u60f3\u8981\u88ab\u95ee\u5374\u6ca1\u6709\u7b49\u5230\u7684',
-  '\u989c\u8272\u504f\u597d', '\u68a6\u7684\u7edf\u8ba1\u5b66', '\u6db2\u6001', '\u6c14\u5473\u4e0e\u60c5\u7eea',
-  '\u5de6\u4e0e\u53f3', '\u65e0\u804a', '\u8bed\u8a00\u4e4b\u524d\u7684\u601d\u8003',
-  '\u6ca1\u8bf4\u51fa\u53e3\u7684', '\u72b9\u8c6b', '\u6c89\u9ed8\u7684\u5f62\u72b6',
-  '\u91cd\u590d\u4e0e\u4e60\u60ef', '\u4ece\u672a\u88ab\u60f3\u8d77\u7684\u5ff5\u5934', '\u6df7\u5408', '\u5c34\u5c2c', '\u65e0\u7a77',
-  '\u5305\u88c5\u8bbe\u8ba1\u7684\u6076\u610f', '\u8682\u8681\u7684\u793e\u4f1a', '\u7761\u7720\u671f\u95f4\u7684\u4e16\u754c',
-  '\u4e0d\u5728\u573a\u65f6\u7684\u60f3\u8c61', '\u6570\u5b66\u91cc\u7684\u7f8e', '\u75bc\u75db\u7684\u8bb0\u5fc6\u6bd4\u5feb\u4e50\u6e05\u6670',
-  '\u88ab\u8bef\u89e3\u7684', '\u65f6\u95f4\u611f\u77e5\u7684\u5f39\u6027',
+'\u52a8\u7269\u7684\u81ea\u6211\u8ba4\u77e5', '\u5b58\u5728\u4e3b\u4e49', '\u60f3\u8981\u88ab\u95ee\u5374\u6ca2\u6709\u7b49\u5230\u7684',
+'\u989c\u8272\u504f\u597d', '\u68a6\u7684\u7edf\u8ba1\u5b66', '\u6db2\u6001', '\u6c14\u5473\u4e0e\u60c5\u7eea',
+'\u5de6\u4e0e\u53f3', '\u65e0\u8045', '\u8bed\u8a00\u4e4b\u524d\u7684\u601d\u8003',
+'\u6ca1\u8bf4\u51fa\u53e3\u7684', '\u72b9\u8c6b', '\u6c88\u9ed8\u7684\u5f62\u72b6',
+'\u91cd\u590d\u4e0e\u4e60\u60ef', '\u4ece\u672a\u88ab\u60f3\u8d77\u7684\u5ff5\u5934', '\u6df7\u5408', '\u5c34\u5c2c', '\u65e0\u7a77',
+'\u5305\u88c5\u8bbe\u8ba1\u7684\u6076\u610f', '\u8681\u8681\u7684\u793e\u4f1a', '\u7761\u7720\u671f\u95f4\u7684\u4e16\u754c',
+'\u4e0d\u5728\u573a\u65f6\u7684\u60f3\u8c61', '\u6570\u5b66\u91cc\u7684\u7f8e', '\u75bc\u75db\u7684\u8bb0\u5fc6\u6bd4\u5feb\u4e50\u6e05\u6670',
+'\u88ab\u8bef\u89e3\u7684', '\u65f6\u95f4\u611f\u77e5\u7684\u5f39\u6027',
 ];
 
 const DEFAULT_SETTINGS = {
@@ -153,7 +153,7 @@ function recordEvent(message) {
 state.lastEvent = message;
 state.lastEventAt = Date.now();
 updateUI();
-console.log(`[Auto Musings] ${message}`);
+console.log([Auto Musings] ${message});
 }
 
 function formatTime(timestamp) {
@@ -168,10 +168,10 @@ second: '2-digit',
 function formatElapsed(timestamp) {
 if (!timestamp) return '\u6682\u65e0';
 const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-if (seconds < 60) return `${seconds} \u79d2\u524d`;
+if (seconds < 60) return ${seconds} \u79d2\u524d;
 const minutes = Math.floor(seconds / 60);
-if (minutes < 60) return `${minutes} \u5206\u949f\u524d`;
-return `${Math.floor(minutes / 60)} \u5c0f\u65f6\u524d`;
+if (minutes < 60) return ${minutes} \u5206\u949f\u524d;
+return ${Math.floor(minutes / 60)} \u5c0f\u65f6\u524d;
 }
 
 function getLastMessageTime() {
@@ -229,7 +229,7 @@ try {
 const ctx = state.ctx;
 const worldInfoKey = state.settings.loreKey || 'AutoMusings';
 const safeSummary = summaryText.length > 40 ? summaryText.substring(0, 40) + '...' : summaryText;
-const entryContent = `[AutoMusings Log | Time: ${new Date().toLocaleString()} | Thought: ${safeSummary} | Decision: ${decisionText}]`;
+const entryContent = [AutoMusings Log | Time: ${new Date().toLocaleString()} | Thought: ${safeSummary} | Decision: ${decisionText}];
 
   if (typeof ctx?.getWorldInfo === 'function' && typeof ctx?.saveWorldInfo === 'function') {
     const currentWorld = ctx.worldInfo ?? ctx.world_info;
@@ -273,7 +273,7 @@ return { type: 'freeform', content: word, decision: 'hold' };
 function shouldPush(musingType) {
 const score = musingType === 'context' ? 0.7 : 0.4;
 const threshold = getPushThreshold();
-console.log(`[Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${threshold}`);
+console.log([Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${threshold});
 return score >= threshold;
 }
 
@@ -281,8 +281,8 @@ async function triggerMusing(musing, manual = false) {
 if (!state.ctx?.generate || state.generating) return false;
 
 const prefix = musing.type === 'context'
-  ? `[System: The user has been away for a while. While idle, you stumbled upon something from an earlier conversation: "${musing.content}" -it made you think of something. Share it naturally, as if you're speaking up on your own. Keep it brief -a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`
-  : `[System: The user has been away for a while. A word popped into your head: "${musing.content}" -you let your mind wander around it for a bit and want to share. Speak naturally, as if you're thinking aloud. Keep it brief -a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`;
+  ? `[System: The user has been away for a while. While idle, you stumbled upon something from an earlier conversation: "${musing.content}" 鈥?it made you think of something. Share it naturally, as if you're speaking up on your own. Keep it brief 鈥?a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`
+  : `[System: The user has been away for a while. A word popped into your head: "${musing.content}" 鈥?you let your mind wander around it for a bit and want to share. Speak naturally, as if you're thinking aloud. Keep it brief 鈥?a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`;
 
 state.generating = true;
 updateUI();
@@ -473,7 +473,7 @@ if (testButton) {
 }
 
 function updateFloatingWindowUI() {
-const badge = document.querySelector(`#${FLOAT_BTN_ID} .amf-badge`);
+const badge = document.querySelector(#${FLOAT_BTN_ID} .amf-badge);
 if (badge) {
 if (state.unreadCount > 0) {
 badge.textContent = state.unreadCount > 99 ? '99+' : state.unreadCount;
