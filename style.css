@@ -113,7 +113,7 @@
   }
 }
 
-/* ===== v1.2.0 新增：种子词、高级区、悬浮按钮、漫想台小窗 ===== */
+/* ===== v1.2.1：种子词、日志设置、悬浮按钮、漫想台小窗 ===== */
 
 #auto-musings_container .auto-musings-section {
   margin-top: 12px;
@@ -123,20 +123,16 @@
   color: var(--SmartThemeQuoteColor, inherit);
 }
 
+#auto-musings_container .auto-musings-seed-field {
+  margin-top: 8px;
+}
+
 #auto-musings_container .auto-musings-seeds {
   width: 100%;
   min-height: 88px;
   resize: vertical;
   margin-top: 4px;
   box-sizing: border-box;
-}
-
-#auto-musings_container .auto-musings-lore {
-  margin-top: 8px;
-  padding: 8px;
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
-  border-radius: 4px;
-  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.12));
 }
 
 #auto-musings_container .auto-musings-hint {

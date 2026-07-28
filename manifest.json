@@ -5,7 +5,7 @@
   "optional": [],
   "js": "index.js",
   "css": "style.css",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "homePage": "https://github.com/juxingmaomi/sillytavern-auto-musings",
   "auto_update": false
 }

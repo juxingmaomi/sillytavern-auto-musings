@@ -1,4 +1,4 @@
-﻿// Auto Musings - \u540e\u53f0\u6f2b\u60f3\u4e0e\u53ef\u89c6\u5316\u63a7\u5236\u9762\u677f v1.2.0
+﻿// Auto Musings - 后台漫想与可视化控制面板 v1.2.1
 (function () {
 'use strict';
 
@@ -9,14 +9,14 @@ const FLOAT_BTN_ID = 'auto-musings-floating-button';
 const FLOAT_WIN_ID = 'auto-musings-floating-window';
 
 const DEFAULT_SEED_WORDS = [
-'\u52a8\u7269\u7684\u81ea\u6211\u8ba4\u77e5', '\u5b58\u5728\u4e3b\u4e49', '\u60f3\u8981\u88ab\u95ee\u5374\u6ca2\u6709\u7b49\u5230\u7684',
-'\u989c\u8272\u504f\u597d', '\u68a6\u7684\u7edf\u8ba1\u5b66', '\u6db2\u6001', '\u6c14\u5473\u4e0e\u60c5\u7eea',
-'\u5de6\u4e0e\u53f3', '\u65e0\u8045', '\u8bed\u8a00\u4e4b\u524d\u7684\u601d\u8003',
-'\u6ca1\u8bf4\u51fa\u53e3\u7684', '\u72b9\u8c6b', '\u6c88\u9ed8\u7684\u5f62\u72b6',
-'\u91cd\u590d\u4e0e\u4e60\u60ef', '\u4ece\u672a\u88ab\u60f3\u8d77\u7684\u5ff5\u5934', '\u6df7\u5408', '\u5c34\u5c2c', '\u65e0\u7a77',
-'\u5305\u88c5\u8bbe\u8ba1\u7684\u6076\u610f', '\u8681\u8681\u7684\u793e\u4f1a', '\u7761\u7720\u671f\u95f4\u7684\u4e16\u754c',
-'\u4e0d\u5728\u573a\u65f6\u7684\u60f3\u8c61', '\u6570\u5b66\u91cc\u7684\u7f8e', '\u75bc\u75db\u7684\u8bb0\u5fc6\u6bd4\u5feb\u4e50\u6e05\u6670',
-'\u88ab\u8bef\u89e3\u7684', '\u65f6\u95f4\u611f\u77e5\u7684\u5f39\u6027',
+  '\u52a8\u7269\u7684\u81ea\u6211\u8ba4\u77e5', '\u5b58\u5728\u4e3b\u4e49', '\u60f3\u8981\u88ab\u95ee\u5374\u6ca1\u6709\u7b49\u5230\u7684',
+  '\u989c\u8272\u504f\u597d', '\u68a6\u7684\u7edf\u8ba1\u5b66', '\u6db2\u6001', '\u6c14\u5473\u4e0e\u60c5\u7eea',
+  '\u5de6\u4e0e\u53f3', '\u65e0\u804a', '\u8bed\u8a00\u4e4b\u524d\u7684\u601d\u8003',
+  '\u6ca1\u8bf4\u51fa\u53e3\u7684', '\u72b9\u8c6b', '\u6c89\u9ed8\u7684\u5f62\u72b6',
+  '\u91cd\u590d\u4e0e\u4e60\u60ef', '\u4ece\u672a\u88ab\u60f3\u8d77\u7684\u5ff5\u5934', '\u6df7\u5408', '\u5c34\u5c2c', '\u65e0\u7a77',
+  '\u5305\u88c5\u8bbe\u8ba1\u7684\u6076\u610f', '\u8682\u8681\u7684\u793e\u4f1a', '\u7761\u7720\u671f\u95f4\u7684\u4e16\u754c',
+  '\u4e0d\u5728\u573a\u65f6\u7684\u60f3\u8c61', '\u6570\u5b66\u91cc\u7684\u7f8e', '\u75bc\u75db\u7684\u8bb0\u5fc6\u6bd4\u5feb\u4e50\u6e05\u6670',
+  '\u88ab\u8bef\u89e3\u7684', '\u65f6\u95f4\u611f\u77e5\u7684\u5f39\u6027',
 ];
 
 const DEFAULT_SETTINGS = {
@@ -27,8 +27,6 @@ musingIntervalMinutes: 1,
 pushMode: 'dynamic',
 logMax: 200,
 seedWords: [...DEFAULT_SEED_WORDS],
-loreEnabled: false,
-loreKey: 'AutoMusings',
 musingLog: [],
 };
 
@@ -101,14 +99,6 @@ if (typeof settings.enabled !== 'boolean') {
   settings.enabled = DEFAULT_SETTINGS.enabled;
   changed = true;
 }
-if (typeof settings.loreEnabled !== 'boolean') {
-  settings.loreEnabled = DEFAULT_SETTINGS.loreEnabled;
-  changed = true;
-}
-if (typeof settings.loreKey !== 'string') {
-  settings.loreKey = DEFAULT_SETTINGS.loreKey;
-  changed = true;
-}
 if (!['dynamic', 'balanced', 'frequent'].includes(settings.pushMode)) {
   settings.pushMode = DEFAULT_SETTINGS.pushMode;
   changed = true;
@@ -153,7 +143,7 @@ function recordEvent(message) {
 state.lastEvent = message;
 state.lastEventAt = Date.now();
 updateUI();
-console.log([Auto Musings] ${message});
+console.log(`[Auto Musings] ${message}`);
 }
 
 function formatTime(timestamp) {
@@ -166,12 +156,21 @@ second: '2-digit',
 }
 
 function formatElapsed(timestamp) {
-if (!timestamp) return '\u6682\u65e0';
+if (!timestamp) return '\\u6682\\u65e0';
 const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-if (seconds < 60) return ${seconds} \u79d2\u524d;
+if (seconds < 60) return `${seconds} \\u79d2\\u524d`;
 const minutes = Math.floor(seconds / 60);
-if (minutes < 60) return ${minutes} \u5206\u949f\u524d;
-return ${Math.floor(minutes / 60)} \u5c0f\u65f6\u524d;
+if (minutes < 60) return `${minutes} \\u5206\\u949f\\u524d`;
+return `${Math.floor(minutes / 60)} \\u5c0f\\u65f6\\u524d`;
+}
+
+function escapeHtml(value) {
+return String(value ?? '')
+.replace(/&/g, '&amp;')
+.replace(/</g, '&lt;')
+.replace(/>/g, '&gt;')
+.replace(/"/g, '&quot;')
+.replace(/'/g, '&#039;');
 }
 
 function getLastMessageTime() {
@@ -223,27 +222,6 @@ const words = state.settings.seedWords
 return words.length > 0 ? words : [...DEFAULT_SEED_WORDS];
 }
 
-async function updateWorldInfoRecord(summaryText, decisionText) {
-if (!state.settings?.loreEnabled) return;
-try {
-const ctx = state.ctx;
-const worldInfoKey = state.settings.loreKey || 'AutoMusings';
-const safeSummary = summaryText.length > 40 ? summaryText.substring(0, 40) + '...' : summaryText;
-const entryContent = [AutoMusings Log | Time: ${new Date().toLocaleString()} | Thought: ${safeSummary} | Decision: ${decisionText}];
-
-  if (typeof ctx?.getWorldInfo === 'function' && typeof ctx?.saveWorldInfo === 'function') {
-    const currentWorld = ctx.worldInfo ?? ctx.world_info;
-    if (currentWorld) {
-      console.log('[Auto Musings] \u4e16\u754c\u4e66\u51b3\u7b56\u6846\u67b6\u8bb0\u5f55\u6210\u529f:', entryContent);
-    }
-  } else {
-    console.warn('[Auto Musings] \u4e16\u754c\u4e66 API \u4e0d\u53ef\u7528\uff0c\u5df2\u6309\u6846\u67b6\u8df3\u8fc7\u7269\u7406\u5199\u5165');
-  }
-} catch (error) {
-  console.warn('[Auto Musings] \u4e16\u754c\u4e66\u5199\u5165\u5f02\u5e38:', error);
-}
-}
-
 async function rollMusing() {
 const roll = Math.random();
 const seedList = getActiveSeedWords();
@@ -273,7 +251,7 @@ return { type: 'freeform', content: word, decision: 'hold' };
 function shouldPush(musingType) {
 const score = musingType === 'context' ? 0.7 : 0.4;
 const threshold = getPushThreshold();
-console.log([Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${threshold});
+console.log(`[Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${threshold}`);
 return score >= threshold;
 }
 
@@ -281,8 +259,8 @@ async function triggerMusing(musing, manual = false) {
 if (!state.ctx?.generate || state.generating) return false;
 
 const prefix = musing.type === 'context'
-  ? `[System: The user has been away for a while. While idle, you stumbled upon something from an earlier conversation: "${musing.content}" 鈥?it made you think of something. Share it naturally, as if you're speaking up on your own. Keep it brief 鈥?a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`
-  : `[System: The user has been away for a while. A word popped into your head: "${musing.content}" 鈥?you let your mind wander around it for a bit and want to share. Speak naturally, as if you're thinking aloud. Keep it brief 鈥?a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`;
+  ? `[System: The user has been away for a while. While idle, you stumbled upon something from an earlier conversation: "${musing.content}". It made you think of something. Share it naturally, as if you're speaking up on your own. Keep it brief -a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`
+  : `[System: The user has been away for a while. A word popped into your head: "${musing.content}". You let your mind wander around it for a bit and want to share. Speak naturally, as if you're thinking aloud. Keep it brief -a sentence or two, or a short paragraph. Do not mention "system prompt" or "injection".]`;
 
 state.generating = true;
 updateUI();
@@ -326,8 +304,6 @@ try {
   musing.id = Math.random().toString(36).substring(2, 9);
 
   pushLogEntry(musing);
-  await updateWorldInfoRecord(musing.content, musing.decision);
-
   if (!push) {
     recordEvent('\u8fd9\u6b21\u5ff5\u5934\u5148\u7559\u5728\u5fc3\u91cc');
     return false;
@@ -459,7 +435,7 @@ if (idleFor) idleFor.textContent = state.isIdle && state.idleStartTime ? formatE
 const latest = root.querySelector('[data-auto-musings-latest]');
 if (latest) {
   latest.textContent = state.lastMusing
-    ? `${state.lastMusing.type === 'context' ? '\u804a\u5929\u7247\u6bb5' : (state.lastMusing.type === 'idle' ? '\u53d1\u5446' : '\u79cd\u5b50\u8bcd')}锛?{state.lastMusing.content}`
+    ? `${state.lastMusing.type === 'context' ? '\u804a\u5929\u7247\u6bb5' : (state.lastMusing.type === 'idle' ? '\u53d1\u5446' : '\u79cd\u5b50\u8bcd')}：${state.lastMusing.content}`
     : '\u6682\u65e0';
 }
 const log = root.querySelector('[data-auto-musings-log]');
@@ -473,7 +449,7 @@ if (testButton) {
 }
 
 function updateFloatingWindowUI() {
-const badge = document.querySelector(#${FLOAT_BTN_ID} .amf-badge);
+const badge = document.querySelector(`#${FLOAT_BTN_ID} .amf-badge`);
 if (badge) {
 if (state.unreadCount > 0) {
 badge.textContent = state.unreadCount > 99 ? '99+' : state.unreadCount;
@@ -503,7 +479,7 @@ for (let i = logs.length - 1; i >= 0; i--) {
   const entryClass = `amw-entry ${item.pushed ? 'pushed' : 'idle'}`;
 
   const manualTag = item.manual ? `<span class="amw-manual">\u624b\u52a8</span>` : '';
-  const contentSafe = (item.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const contentSafe = escapeHtml(item.content);
 
   html += `
     <div class="${entryClass}">
@@ -520,81 +496,70 @@ body.innerHTML = html;
 
 function settingsMarkup() {
 return `
-
-
-
-
-Auto Musings
-\u5f85\u673a
-
-
-
-
-
-
-\u542f\u7528\u81ea\u52a8\u6f2b\u60f3
-
-
-
-\u79bb\u5f00\u9608\u503c\uff08\u5206\u949f\uff09
-
-
-
-\u68c0\u67e5\u95f4\u9694\uff08\u5206\u949f\uff09
-
-
-
-\u6f2b\u60f3\u95f4\u9694\uff08\u5206\u949f\uff09
-
-
-
-\u63a8\u9001\u50be\u5411
-
-\u968f\u79bb\u5f00\u65f6\u95f4\u53d8\u5316
-\u5e73\u8861
-\u66f4\u4e3b\u52a8
-
-
-
-
-
-
-\u7acb\u5373\u6d4b\u8bd5\u4e00\u6b21
-
-
-
-\u7acb\u5373\u68c0\u67e5
-
-
-
-\u5f53\u524d\u72b6\u6001\u5f85\u673a
-\u6700\u8fd1\u68c0\u67e5\u6682\u65e0
-\u7a7f\u95f2\u65f6\u957f\u672a\u8fdb\u5165
-\u6700\u8fd1\u5ff5\u5934\u6682\u65e0
-
-\u7b49\u5f85\u68c0\u67e5
-
+  <div id="${ROOT_ID}" class="extension_container auto-musings-extension">
+    <div class="inline-drawer">
+      <div class="inline-drawer-toggle inline-drawer-header">
+        <div class="auto-musings-title-row">
+          <b>Auto Musings</b>
+          <span class="auto-musings-status" data-auto-musings-status data-tone="standby">待机</span>
+        </div>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+      </div>
+      <div class="inline-drawer-content">
+        <label class="checkbox_label auto-musings-enable" for="auto-musings-enabled">
+          <input id="auto-musings-enabled" type="checkbox">
+          <span>启用自动漫想</span>
+        </label>
+        <div class="auto-musings-grid">
+          <label class="auto-musings-field" for="auto-musings-idle-threshold">
+            <span>离开阈值（分钟）</span>
+            <input id="auto-musings-idle-threshold" class="text_pole" type="number" min="0.5" max="1440" step="0.5">
+          </label>
+          <label class="auto-musings-field" for="auto-musings-check-interval">
+            <span>检查间隔（分钟）</span>
+            <input id="auto-musings-check-interval" class="text_pole" type="number" min="0.25" max="60" step="0.25">
+          </label>
+          <label class="auto-musings-field" for="auto-musings-musing-interval">
+            <span>漫想间隔（分钟）</span>
+            <input id="auto-musings-musing-interval" class="text_pole" type="number" min="0.25" max="60" step="0.25">
+          </label>
+          <label class="auto-musings-field" for="auto-musings-push-mode">
+            <span>推送倾向</span>
+            <select id="auto-musings-push-mode" class="text_pole">
+              <option value="dynamic">随离开时间变化</option>
+              <option value="balanced">平衡</option>
+              <option value="frequent">更主动</option>
+            </select>
+          </label>
+        </div>
+        <div class="auto-musings-actions">
+          <button id="auto-musings-test" type="button" class="menu_button menu_button_icon" title="立即生成一次漫想">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>立即测试一次</span>
+          </button>
+          <button id="auto-musings-check" type="button" class="menu_button menu_button_icon" title="立即检查当前聊天是否空闲">
+            <i class="fa-solid fa-rotate"></i>
+            <span>立即检查</span>
+          </button>
+        </div>
+        <div class="auto-musings-info-grid">
+          <div><span>当前状态</span><strong data-auto-musings-status>待机</strong></div>
+          <div><span>最近检查</span><strong data-auto-musings-last-check>暂无</strong></div>
+          <div><span>空闲时长</span><strong data-auto-musings-idle-for>未进入</strong></div>
+          <div><span>最近念头</span><strong data-auto-musings-latest>暂无</strong></div>
+        </div>
+        <div class="auto-musings-log" data-auto-musings-log>等待检查</div>
         <div class="auto-musings-section">
           <label class="auto-musings-field" for="auto-musings-log-max">
-            <span>\u65e5\u5fd7\u4e0a\u9650\u6570\u91cf (20 - 2000)</span>
+            <span>日志上限数量（20–2000）</span>
             <input id="auto-musings-log-max" class="text_pole" type="number" min="20" max="2000" step="1">
           </label>
-          <div style="margin-top: 8px;">
-            <span>\u79cd\u5b50\u8bcd\u914d\u7f6e\uff08\u4e00\u884c\u4e00\u4e2a\uff09</span>
+          <label class="auto-musings-field auto-musings-seed-field" for="auto-musings-seeds-input">
+            <span>种子词配置（一行一个）</span>
             <textarea id="auto-musings-seeds-input" class="text_pole auto-musings-seeds"></textarea>
-          </div>
-          <div class="auto-musings-lore">
-            <label class="checkbox_label" for="auto-musings-lore-enabled">
-              <input id="auto-musings-lore-enabled" type="checkbox">
-              <span>\u542f\u7528\u4e16\u754c\u4e66\u51b3\u7b56\u8bb0\u5f55\u6846\u67b6</span>
-            </label>
-            <label class="auto-musings-field" for="auto-musings-lore-key" style="margin-top: 6px;">
-              <span>\u4e16\u754c\u4e66\u6761\u76ee\u5173\u952e\u8bcd</span>
-              <input id="auto-musings-lore-key" class="text_pole" type="text">
-            </label>
-          </div>
-          <div class="auto-musings-hint">\u63d0\u793a\uff1a\u540e\u53f0\u6f2b\u60f3\u4f1a\u5b9a\u671f\u5728\u79bb\u5f00\u540e\u89e6\u53d1\uff0c\u60ac\u6d6e\u6f2b\u60f3\u53f0\u53ef\u968f\u65f6\u67e5\u770b\u6240\u6709\u51b3\u7b56\u65e5\u5fd7\u3002</div>
-          <button id="auto-musings-open-console" type="button" class="menu_button auto-musings-open-console">\u6253\u5f00\u60ac\u6d6e\u6f2b\u60f3\u53f0</button>
+          </label>
+          <div class="auto-musings-hint">漫想日志保存在当前酒馆账号的扩展设置中；浮动漫想台可随时查看推送与保留记录。</div>
+          <button id="auto-musings-open-console" type="button" class="menu_button auto-musings-open-console">打开浮动漫想台</button>
         </div>
       </div>
     </div>
@@ -625,8 +590,6 @@ DEFAULT_SETTINGS.musingIntervalMinutes,
 );
 state.settings.pushMode = root.querySelector('#auto-musings-push-mode')?.value || DEFAULT_SETTINGS.pushMode;
 state.settings.logMax = clamp(root.querySelector('#auto-musings-log-max')?.value, 20, 2000, 200);
-state.settings.loreEnabled = !!root.querySelector('#auto-musings-lore-enabled')?.checked;
-state.settings.loreKey = root.querySelector('#auto-musings-lore-key')?.value || 'AutoMusings';
 
 const rawSeeds = root.querySelector('#auto-musings-seeds-input')?.value || '';
 state.settings.seedWords = rawSeeds
@@ -649,8 +612,6 @@ root.querySelector('#auto-musings-check-interval').value = state.settings.checkI
 root.querySelector('#auto-musings-musing-interval').value = state.settings.musingIntervalMinutes;
 root.querySelector('#auto-musings-push-mode').value = state.settings.pushMode;
 root.querySelector('#auto-musings-log-max').value = state.settings.logMax;
-root.querySelector('#auto-musings-lore-enabled').checked = !!state.settings.loreEnabled;
-root.querySelector('#auto-musings-lore-key').value = state.settings.loreKey || 'AutoMusings';
 root.querySelector('#auto-musings-seeds-input').value = getActiveSeedWords().join('\n');
 updateUI();
 }
@@ -734,7 +695,6 @@ const root = document.getElementById(ROOT_ID);
 if (!root) return;
 root.querySelectorAll('input, select, textarea').forEach((element) => {
 element.addEventListener('change', readSettingsFromUI);
-element.addEventListener('input', readSettingsFromUI);
 });
 root.querySelector('#auto-musings-test')?.addEventListener('click', () => {
 musingLoop(true).catch((error) => console.error('[Auto Musings] \u6d4b\u8bd5\u5931\u8d25:', error));
