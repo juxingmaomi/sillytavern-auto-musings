@@ -727,7 +727,7 @@ function completePending(directories, body) {
 export async function init(router) {
     router.post('/status', (request, response) => {
         const job = jobs.get(getUserKey(request));
-        return response.send({ ok: true, version: '1.3.0', job: getJobStatus(job) });
+        return response.send({ ok: true, version: '1.3.1', job: getJobStatus(job) });
     });
 
     router.post('/sync', (request, response) => {

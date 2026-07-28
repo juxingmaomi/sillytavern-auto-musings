@@ -1,4 +1,4 @@
-﻿// Auto Musings - 后台漫想与可视化控制面板 v1.3.0
+﻿// Auto Musings - 后台漫想与可视化控制面板 v1.3.1
 (function () {
 'use strict';
 
@@ -8,6 +8,8 @@ const MENU_ID = 'auto-musings-wand-btn';
 const FLOAT_BTN_ID = 'auto-musings-floating-button';
 const FLOAT_WIN_ID = 'auto-musings-floating-window';
 const SERVER_API_BASE = '/api/plugins/auto-musings';
+const INIT_RETRY_INTERVAL_MS = 500;
+const INIT_MAX_ATTEMPTS = 120;
 
 const DEFAULT_SEED_WORDS = [
   '\u52a8\u7269\u7684\u81ea\u6211\u8ba4\u77e5', '\u5b58\u5728\u4e3b\u4e49', '\u60f3\u8981\u88ab\u95ee\u5374\u6ca1\u6709\u7b49\u5230\u7684',
@@ -37,6 +39,7 @@ musingLog: [],
 };
 
 const state = {
+initialized: false,
 ctx: null,
 settings: null,
 checkTimer: null,
@@ -1317,9 +1320,16 @@ fillSettingsUI();
 
 function addSettingsPanel(attempt = 0) {
 if (document.getElementById(ROOT_ID)) return true;
-const target = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
+const target = document.getElementById('extensions_settings2')
+  || document.getElementById('extensions_settings')
+  || document.getElementById('rm_extensions_block')
+  || document.querySelector('[data-extension-settings]');
 if (!target) {
-if (attempt < 30) setTimeout(() => addSettingsPanel(attempt + 1), 500);
+if (attempt < INIT_MAX_ATTEMPTS) {
+  setTimeout(() => addSettingsPanel(attempt + 1), INIT_RETRY_INTERVAL_MS);
+} else {
+  console.error('[Auto Musings] Settings container was not found');
+}
 return false;
 }
 target.insertAdjacentHTML('beforeend', settingsMarkup());
@@ -1333,7 +1343,9 @@ function addMenuButton(attempt = 0) {
 if (document.getElementById(MENU_ID)) return true;
 const menu = document.getElementById('extensionsMenu');
 if (!menu) {
-if (attempt < 30) setTimeout(() => addMenuButton(attempt + 1), 500);
+if (attempt < INIT_MAX_ATTEMPTS) {
+  setTimeout(() => addMenuButton(attempt + 1), INIT_RETRY_INTERVAL_MS);
+}
 return false;
 }
 
@@ -1381,10 +1393,11 @@ document.addEventListener('visibilitychange', () => {
 });
 }
 
-function init() {
+function init(ctx) {
+if (state.initialized) return true;
+state.initialized = true;
 try {
-state.ctx = globalThis.SillyTavern?.getContext?.();
-if (!state.ctx) throw new Error('SillyTavern context unavailable');
+state.ctx = ctx;
 ensureSettings(state.ctx);
 addSettingsPanel();
 addMenuButton();
@@ -1417,10 +1430,30 @@ updateFloatingWindowUI();
     }),
   };
   recordEvent('Auto Musings \u5df2\u52a0\u8f7d');
+  return true;
 } catch (error) {
+  state.initialized = false;
   console.error('[Auto Musings] \u521d\u59cb\u5316\u5931\u8d25:', error);
+  return false;
 }
 }
 
-init();
+function bootstrap(attempt = 0) {
+if (state.initialized) return;
+const ctx = globalThis.SillyTavern?.getContext?.();
+if (ctx && document.body) {
+  if (!init(ctx) && attempt < INIT_MAX_ATTEMPTS) {
+    setTimeout(() => bootstrap(attempt + 1), INIT_RETRY_INTERVAL_MS);
+  }
+  return;
+}
+
+if (attempt < INIT_MAX_ATTEMPTS) {
+  setTimeout(() => bootstrap(attempt + 1), INIT_RETRY_INTERVAL_MS);
+} else {
+  console.error('[Auto Musings] Timed out while waiting for SillyTavern context');
+}
+}
+
+bootstrap();
 })();
