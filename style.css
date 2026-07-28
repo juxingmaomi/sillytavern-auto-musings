@@ -113,7 +113,7 @@
   }
 }
 
-/* ===== v1.2.1：种子词、日志设置、悬浮按钮、漫想台小窗 ===== */
+/* ===== v1.3.0：服务端伴侣、上下文、副 API 与漫想台 ===== */
 
 #auto-musings_container .auto-musings-section {
   margin-top: 12px;
@@ -121,6 +121,38 @@
   border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
   font-size: 0.9em;
   color: var(--SmartThemeQuoteColor, inherit);
+}
+
+#auto-musings_container .auto-musings-runtime-section {
+  padding: 10px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.08));
+}
+
+#auto-musings_container .auto-musings-section-title {
+  margin-bottom: 8px;
+  color: var(--SmartThemeBodyColor, inherit);
+  font-weight: 600;
+}
+
+#auto-musings_container .auto-musings-server-state {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-left: 3px solid #d49b45;
+  background: rgba(212, 155, 69, 0.08);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-server-state[data-connected="true"] {
+  border-left-color: #63bd83;
+  background: rgba(99, 189, 131, 0.08);
+}
+
+#auto-musings_container input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 #auto-musings_container .auto-musings-seed-field {
@@ -267,14 +299,22 @@
 
 .amw-entry {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 6px;
-  padding: 6px 8px;
-  margin-bottom: 4px;
-  border-radius: 4px;
+  padding: 8px 9px;
+  margin-bottom: 7px;
+  border-radius: 6px;
   font-size: 0.85em;
   line-height: 1.4;
   border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08));
+}
+
+.amw-entry .amw-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
 }
 
 .amw-entry .amw-time {
@@ -298,7 +338,7 @@
 }
 
 .amw-entry.idle {
-  opacity: 0.55;
+  opacity: 0.82;
 }
 
 .amw-entry.pushed {
@@ -306,9 +346,33 @@
 }
 
 .amw-entry .amw-content {
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
+  color: var(--SmartThemeQuoteColor, inherit);
+  opacity: 0.78;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.amw-entry .amw-thought {
+  width: 100%;
+  padding: 7px 8px;
+  border-left: 3px solid var(--SmartThemeEmColor, #8bd5ff);
+  background: rgba(139, 213, 255, 0.07);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.amw-entry .amw-error {
+  width: 100%;
+  color: #f08a83;
+  overflow-wrap: anywhere;
+}
+
+.amw-entry .amw-world {
+  flex: 0 0 auto;
+  color: #75c990;
+  font-size: 0.75em;
 }
 
 .amw-entry .amw-dec {
@@ -323,6 +387,10 @@
 
 .amw-entry .amw-dec.hold {
   opacity: 0.6;
+}
+
+.amw-entry .amw-dec.error {
+  color: #f08a83;
 }
 
 .amw-entry .amw-manual {
