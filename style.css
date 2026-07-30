@@ -409,3 +409,24 @@
     max-height: 55vh;
   }
 }
+
+/* ===== 手机端 Edge 浏览器适配补丁 ===== */
+
+/* 修复：防止面板过宽超出屏幕边界 */
+#auto-musings-floating-window {
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 600px) {
+  /* 修复：把面板往上挪，避开 Edge 底部导航栏，并自动适应屏幕高度 */
+  #auto-musings-floating-window {
+    bottom: 100px !important;
+    max-height: 65dvh !important;
+  }
+  
+  /* 修复：把悬浮按钮往上拉，让它从 Edge 导航栏后面露出来 */
+  #auto-musings-floating-button {
+    bottom: 100px !important;
+    transform: scale(0.9) !important;
+  }
+}
