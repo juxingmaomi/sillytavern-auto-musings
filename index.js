@@ -1,8 +1,8 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.2
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.3
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.2';
+const EXTENSION_VERSION = '1.5.3';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -52,6 +52,7 @@ forumReviewProfileId: '',
 forumReviewModel: '',
 forumFilterMaxTokens: 500,
 forumReviewMaxTokens: 1200,
+floatingButtonPositions: {},
 };
 
 const state = {
@@ -88,6 +89,8 @@ pageSuspended: document.visibilityState === 'hidden',
 };
 
 let floatingPositionRepairFrame = null;
+let floatingButtonDragging = false;
+let suppressFloatingButtonClickUntil = 0;
 
 const clamp = (value, min, max, fallback) => {
 const number = Number(value);
@@ -275,7 +278,9 @@ const settings = settingsBag[EXTENSION_ID];
 let changed = false;
 for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
   if (!(key in settings)) {
-    settings[key] = Array.isArray(value) ? [...value] : value;
+    settings[key] = Array.isArray(value)
+      ? [...value]
+      : (value && typeof value === 'object' ? { ...value } : value);
     changed = true;
   }
 }
@@ -327,6 +332,28 @@ if (typeof settings.secondaryModel !== 'string') {
 if (typeof settings.forumEnabled !== 'boolean') {
   settings.forumEnabled = false;
   changed = true;
+}
+if (!settings.floatingButtonPositions
+  || typeof settings.floatingButtonPositions !== 'object'
+  || Array.isArray(settings.floatingButtonPositions)) {
+  settings.floatingButtonPositions = {};
+  changed = true;
+}
+for (const mode of ['mobile', 'desktop']) {
+  const position = settings.floatingButtonPositions[mode];
+  if (position === undefined) continue;
+  const x = Number(position?.x);
+  const y = Number(position?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    delete settings.floatingButtonPositions[mode];
+    changed = true;
+    continue;
+  }
+  const normalized = { x: clamp(x, 0, 1, 1), y: clamp(y, 0, 1, 0) };
+  if (normalized.x !== position.x || normalized.y !== position.y) {
+    settings.floatingButtonPositions[mode] = normalized;
+    changed = true;
+  }
 }
 for (const key of ['forumMcpServerName', 'forumFilterProfileId', 'forumFilterModel', 'forumReviewProfileId', 'forumReviewModel']) {
   if (typeof settings[key] !== 'string') {
@@ -1914,36 +1941,113 @@ setTimeout(() => {
 }, 250);
 }
 
-function keepFloatingElementInViewport(element) {
+function getFloatingViewportBounds() {
+const viewport = window.visualViewport;
+return {
+  left: viewport?.offsetLeft || 0,
+  top: viewport?.offsetTop || 0,
+  width: viewport?.width || window.innerWidth,
+  height: viewport?.height || window.innerHeight,
+};
+}
+
+function getFloatingButtonMode() {
+return window.matchMedia('(max-width: 900px)').matches ? 'mobile' : 'desktop';
+}
+
+function moveFloatingButtonToViewportPosition(button, targetLeft, targetTop) {
+if (!button) return;
+const rect = button.getBoundingClientRect();
+const computed = getComputedStyle(button);
+const cssLeft = Number.parseFloat(computed.left);
+const cssTop = Number.parseFloat(computed.top);
+button.style.left = `${Number.isFinite(cssLeft) ? cssLeft : rect.left}px`;
+button.style.top = `${Number.isFinite(cssTop) ? cssTop : rect.top}px`;
+button.style.right = 'auto';
+button.style.bottom = 'auto';
+
+const placedRect = button.getBoundingClientRect();
+const placedStyle = getComputedStyle(button);
+const placedLeft = Number.parseFloat(placedStyle.left);
+const placedTop = Number.parseFloat(placedStyle.top);
+if (Number.isFinite(placedLeft)) button.style.left = `${placedLeft + targetLeft - placedRect.left}px`;
+if (Number.isFinite(placedTop)) button.style.top = `${placedTop + targetTop - placedRect.top}px`;
+}
+
+function keepFloatingElementInViewport(element, horizontal = false) {
 if (!element || getComputedStyle(element).display === 'none') return;
 const rect = element.getBoundingClientRect();
 if (!rect.width || !rect.height) return;
 
-const viewport = window.visualViewport;
-const viewportTop = viewport?.offsetTop || 0;
-const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+const viewport = getFloatingViewportBounds();
 const margin = 8;
-let shift = 0;
-if (rect.top < viewportTop + margin) {
-  shift = viewportTop + margin - rect.top;
-} else if (rect.bottom > viewportBottom - margin) {
-  shift = viewportBottom - margin - rect.bottom;
-}
-if (Math.abs(shift) < 0.5) return;
+const minLeft = viewport.left + margin;
+const minTop = viewport.top + margin;
+const maxLeft = Math.max(minLeft, viewport.left + viewport.width - rect.width - margin);
+const maxTop = Math.max(minTop, viewport.top + viewport.height - rect.height - margin);
+const targetLeft = horizontal ? Math.min(maxLeft, Math.max(minLeft, rect.left)) : rect.left;
+const targetTop = Math.min(maxTop, Math.max(minTop, rect.top));
+if (Math.abs(targetLeft - rect.left) < 0.5 && Math.abs(targetTop - rect.top) < 0.5) return;
 
+if (horizontal) {
+  moveFloatingButtonToViewportPosition(element, targetLeft, targetTop);
+  return;
+}
 const currentTop = Number.parseFloat(getComputedStyle(element).top);
-if (Number.isFinite(currentTop)) element.style.top = `${Math.max(0, currentTop + shift)}px`;
+if (Number.isFinite(currentTop)) element.style.top = `${currentTop + targetTop - rect.top}px`;
+}
+
+function applySavedFloatingButtonPosition(button, mode) {
+const position = state.settings?.floatingButtonPositions?.[mode];
+const x = Number(position?.x);
+const y = Number(position?.y);
+if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+
+const rect = button.getBoundingClientRect();
+if (!rect.width || !rect.height) return false;
+const viewport = getFloatingViewportBounds();
+const margin = 8;
+const availableX = Math.max(0, viewport.width - rect.width - margin * 2);
+const availableY = Math.max(0, viewport.height - rect.height - margin * 2);
+const targetLeft = viewport.left + margin + availableX * Math.min(1, Math.max(0, x));
+const targetTop = viewport.top + margin + availableY * Math.min(1, Math.max(0, y));
+if (Math.abs(targetLeft - rect.left) >= 0.5 || Math.abs(targetTop - rect.top) >= 0.5) {
+  moveFloatingButtonToViewportPosition(button, targetLeft, targetTop);
+}
+return true;
+}
+
+function saveFloatingButtonPosition(button, mode) {
+const rect = button.getBoundingClientRect();
+if (!rect.width || !rect.height || !state.settings) return;
+const viewport = getFloatingViewportBounds();
+const margin = 8;
+const availableX = Math.max(1, viewport.width - rect.width - margin * 2);
+const availableY = Math.max(1, viewport.height - rect.height - margin * 2);
+const x = Math.min(1, Math.max(0, (rect.left - viewport.left - margin) / availableX));
+const y = Math.min(1, Math.max(0, (rect.top - viewport.top - margin) / availableY));
+state.settings.floatingButtonPositions = {
+  ...(state.settings.floatingButtonPositions || {}),
+  [mode]: { x: Number(x.toFixed(4)), y: Number(y.toFixed(4)) },
+};
+saveSettings();
 }
 
 function repairFloatingPositionNow() {
 const button = document.getElementById(FLOAT_BTN_ID);
 const panel = document.getElementById(FLOAT_WIN_ID);
-if (!window.matchMedia('(max-width: 900px)').matches) {
-  button?.style.removeProperty('top');
-  panel?.style.removeProperty('top');
+if (panel?.classList.contains('show')) {
+  keepFloatingElementInViewport(panel);
   return;
 }
-keepFloatingElementInViewport(panel?.classList.contains('show') ? panel : button);
+if (!button || floatingButtonDragging) return;
+
+const mode = getFloatingButtonMode();
+if (button.dataset.autoMusingsPositionMode !== mode) {
+  for (const property of ['left', 'top', 'right', 'bottom']) button.style.removeProperty(property);
+  button.dataset.autoMusingsPositionMode = mode;
+}
+if (!applySavedFloatingButtonPosition(button, mode)) keepFloatingElementInViewport(button, true);
 }
 
 function scheduleFloatingPositionRepair() {
@@ -1951,6 +2055,96 @@ if (floatingPositionRepairFrame !== null) return;
 floatingPositionRepairFrame = requestAnimationFrame(() => {
   floatingPositionRepairFrame = null;
   repairFloatingPositionNow();
+});
+}
+
+function bindFloatingButtonDrag(button) {
+if (!button || button.dataset.autoMusingsDragBound === 'true') return;
+button.dataset.autoMusingsDragBound = 'true';
+let active = false;
+let moved = false;
+let pointerId = null;
+let startX = 0;
+let startY = 0;
+let startRect = null;
+let startCssLeft = 0;
+let startCssTop = 0;
+let mode = getFloatingButtonMode();
+
+const finish = (event, cancelled = false) => {
+  if (!active) return;
+  active = false;
+  floatingButtonDragging = false;
+  suppressFloatingButtonClickUntil = Date.now() + 420;
+  if (moved) saveFloatingButtonPosition(button, mode);
+  button.classList.remove('dragging');
+  if (event?.cancelable) event.preventDefault();
+  if (!moved && !cancelled) toggleFloatingWindow();
+  try {
+    if (pointerId !== null && button.hasPointerCapture(pointerId)) button.releasePointerCapture(pointerId);
+  } catch {
+    // Pointer capture can already be gone after cancellation.
+  }
+  pointerId = null;
+  scheduleFloatingPositionRepair();
+};
+
+button.addEventListener('pointerdown', (event) => {
+  if (event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+  const rect = button.getBoundingClientRect();
+  const computed = getComputedStyle(button);
+  active = true;
+  moved = false;
+  pointerId = event.pointerId;
+  startX = event.clientX;
+  startY = event.clientY;
+  startRect = rect;
+  startCssLeft = Number.parseFloat(computed.left);
+  startCssTop = Number.parseFloat(computed.top);
+  if (!Number.isFinite(startCssLeft)) startCssLeft = rect.left;
+  if (!Number.isFinite(startCssTop)) startCssTop = rect.top;
+  mode = getFloatingButtonMode();
+  floatingButtonDragging = true;
+  button.classList.add('dragging');
+  try {
+    button.setPointerCapture(event.pointerId);
+  } catch {
+    // Dragging still works while the pointer stays over the button.
+  }
+  if (event.cancelable) event.preventDefault();
+});
+
+button.addEventListener('pointermove', (event) => {
+  if (!active || event.pointerId !== pointerId || !startRect) return;
+  const dx = event.clientX - startX;
+  const dy = event.clientY - startY;
+  if (!moved && Math.hypot(dx, dy) < 6) return;
+  moved = true;
+  const viewport = getFloatingViewportBounds();
+  const margin = 8;
+  const minLeft = viewport.left + margin;
+  const minTop = viewport.top + margin;
+  const maxLeft = Math.max(minLeft, viewport.left + viewport.width - startRect.width - margin);
+  const maxTop = Math.max(minTop, viewport.top + viewport.height - startRect.height - margin);
+  const targetLeft = Math.min(maxLeft, Math.max(minLeft, startRect.left + dx));
+  const targetTop = Math.min(maxTop, Math.max(minTop, startRect.top + dy));
+  button.style.left = `${startCssLeft + targetLeft - startRect.left}px`;
+  button.style.top = `${startCssTop + targetTop - startRect.top}px`;
+  button.style.right = 'auto';
+  button.style.bottom = 'auto';
+  if (event.cancelable) event.preventDefault();
+});
+
+button.addEventListener('pointerup', (event) => {
+  if (!active || event.pointerId !== pointerId) return;
+  finish(event);
+});
+button.addEventListener('pointercancel', (event) => {
+  if (!active || event.pointerId !== pointerId) return;
+  finish(event, true);
+});
+button.addEventListener('lostpointercapture', (event) => {
+  if (active && event.pointerId === pointerId) finish(event, true);
 });
 }
 
@@ -2003,11 +2197,19 @@ if (!floatBtn) {
   document.body.appendChild(floatBtn);
 }
 floatBtn.dataset.autoMusingsUiVersion = EXTENSION_VERSION;
-floatBtn.title = '\u6253\u5f00 Auto Musings \u6f2b\u60f3\u53f0';
+floatBtn.title = '\u62d6\u52a8\u8c03\u6574\u4f4d\u7f6e\uff1b\u8f7b\u70b9\u6253\u5f00 Auto Musings \u6f2b\u60f3\u53f0';
 floatBtn.setAttribute('aria-label', '\u6253\u5f00 Auto Musings \u6f2b\u60f3\u53f0');
 floatBtn.setAttribute('aria-controls', FLOAT_WIN_ID);
 floatBtn.setAttribute('aria-expanded', String(state.windowOpen));
-floatBtn.onclick = () => toggleFloatingWindow();
+floatBtn.onclick = (event) => {
+  if (floatingButtonDragging || Date.now() < suppressFloatingButtonClickUntil) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  toggleFloatingWindow();
+};
+bindFloatingButtonDrag(floatBtn);
 
 let floatWin = document.getElementById(FLOAT_WIN_ID);
 const floatingWindowIsComplete = floatWin

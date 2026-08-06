@@ -15,7 +15,7 @@ import {
 } from './forum-core.mjs';
 
 const PLUGIN_ID = 'auto-musings';
-const PLUGIN_VERSION = '1.5.2';
+const PLUGIN_VERSION = '1.5.3';
 const DATA_DIRECTORY = 'auto-musings';
 const HISTORY_FILE = 'history.jsonl';
 const PENDING_FILE = 'pending.json';

@@ -295,14 +295,14 @@
   opacity: 1;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
   border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
   background: var(--SmartThemeBlurTintColor, rgba(20, 20, 30, 0.85));
   color: var(--SmartThemeBodyColor, #eee);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s, background 0.15s, opacity 0.15s;
   user-select: none;
-  touch-action: manipulation;
+  touch-action: none;
   pointer-events: auto;
   -webkit-appearance: none;
   appearance: none;
@@ -310,7 +310,14 @@
 }
 
 #auto-musings-floating-button:hover {
-  transform: scale(1.08);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+
+#auto-musings-floating-button.dragging,
+#auto-musings-floating-button.dragging:hover {
+  cursor: grabbing;
+  transition: none;
+  transform: none;
 }
 
 #auto-musings-floating-button.active {
