@@ -1,4 +1,4 @@
-﻿#auto-musings_container .inline-drawer,
+#auto-musings_container .inline-drawer,
 #auto-musings_container .inline-drawer-content,
 #auto-musings_container details,
 #auto-musings_container label,
@@ -134,102 +134,211 @@
   color: var(--SmartThemeEmColor, #8bd5ff);
 }
 
+@media (max-width: 900px) {
+  #auto-musings_container .auto-musings-grid,
+  #auto-musings_container .auto-musings-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
+  #auto-musings_container .auto-musings-title-row,
+  #auto-musings_container .checkbox_label {
+    flex-wrap: wrap;
+  }
 
-/* ===== v1.5.0 ????? ===== */
+  #auto-musings_container .auto-musings-actions button {
+    flex: 1 1 100%;
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+  }
 
+  #auto-musings_container input:not([type="checkbox"]):not([type="radio"]),
+  #auto-musings_container select,
+  #auto-musings_container textarea {
+    font-size: 16px;
+  }
+}
+
+/* ===== v1.3.0：服务端伴侣、上下文、副 API 与漫想台 ===== */
+
+#auto-musings_container .auto-musings-section {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  font-size: 0.9em;
+  color: var(--SmartThemeQuoteColor, inherit);
+}
+
+#auto-musings_container .auto-musings-runtime-section {
+  padding: 10px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.08));
+}
+
+#auto-musings_container .auto-musings-forum-section {
+  padding: 10px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.08));
+}
+
+#auto-musings_container .auto-musings-forum-state {
+  margin: 8px 0;
+  padding: 7px 8px;
+  border-left: 3px solid #d49b45;
+  background: rgba(212, 155, 69, 0.08);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-forum-state[data-tone="ready"] {
+  border-left-color: #63bd83;
+  background: rgba(99, 189, 131, 0.08);
+}
+
+#auto-musings_container .auto-musings-forum-state[data-tone="active"] {
+  border-left-color: var(--SmartThemeEmColor, #8bd5ff);
+  background: rgba(139, 213, 255, 0.08);
+}
+
+#auto-musings_container .auto-musings-forum-state[data-tone="error"] {
+  border-left-color: #e36d64;
+  background: rgba(227, 109, 100, 0.08);
+}
+
+#auto-musings_container .auto-musings-section-title {
+  margin-bottom: 8px;
+  color: var(--SmartThemeBodyColor, inherit);
+  font-weight: 600;
+}
+
+#auto-musings_container .auto-musings-server-state {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-left: 3px solid #d49b45;
+  background: rgba(212, 155, 69, 0.08);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-server-state[data-connected="true"] {
+  border-left-color: #63bd83;
+  background: rgba(99, 189, 131, 0.08);
+}
+
+#auto-musings_container input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#auto-musings_container .auto-musings-seed-field {
+  margin-top: 8px;
+}
+
+#auto-musings_container .auto-musings-seeds {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+
+#auto-musings_container .auto-musings-hint {
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.82em;
+  opacity: 0.75;
+  margin-top: 4px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-open-console {
+  width: 100%;
+  margin-top: 6px;
+}
+
+/* ===== 悬浮按钮 ===== */
 #auto-musings-floating-button {
   position: fixed;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: max(130px, calc(82px + env(safe-area-inset-bottom)));
+  right: 16px;
+  bottom: 16px;
   z-index: 99999;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
-  background: var(--SmartThemeBlurTintColor, rgba(18, 18, 26, 0.92));
-  color: var(--SmartThemeBodyColor, #eee);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
-  padding: 4px;
+  cursor: pointer;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+  background: var(--SmartThemeBlurTintColor, rgba(20, 20, 30, 0.85));
+  color: var(--SmartThemeBodyColor, #eee);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s, background 0.15s, opacity 0.15s;
+  user-select: none;
   touch-action: manipulation;
 }
 
-#auto-musings-floating-button.active {
-  visibility: hidden;
-  pointer-events: none;
-  opacity: 0;
+#auto-musings-floating-button:hover {
+  transform: scale(1.08);
 }
 
-#auto-musings-floating-button .amf-icon {
-  font-size: 22px;
-  line-height: 1;
+#auto-musings-floating-button.active {
+  background: var(--SmartThemeEmColor, #8bd5ff);
+  color: #111;
 }
 
 #auto-musings-floating-button .amf-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #e36d64;
-  color: #fff;
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
+  min-width: 16px;
+  height: 16px;
   padding: 0 4px;
+  border-radius: 8px;
+  background: #e0584b;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
   display: none;
 }
 
-#auto-musings-floating-button .amf-badge.has-unread {
+#auto-musings-floating-button .amf-badge.show {
   display: block;
 }
 
+/* ===== 漫想台小窗 ===== */
 #auto-musings-floating-window {
   display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 68px;
   z-index: 99998;
-  width: min(92vw, 560px);
-  max-width: min(92vw, 560px);
-  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: 60vh;
   flex-direction: column;
   border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
   background: var(--SmartThemeBlurTintColor, rgba(18, 18, 26, 0.96));
   color: var(--SmartThemeBodyColor, #eee);
-  border-radius: 10px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   overflow: hidden;
-  padding: 0;
-  margin: 0;
 }
 
 #auto-musings-floating-window.show {
   display: flex;
 }
 
-#auto-musings-floating-window[open] {
-  display: flex;
-}
-
-#auto-musings-floating-window::backdrop {
-  background: rgba(5, 7, 12, 0.45);
-  backdrop-filter: blur(2px);
-}
-
 #auto-musings-floating-window .amw-head {
-  position: sticky;
-  top: 0;
-  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
   flex: 0 0 auto;
-  background: inherit;
 }
 
 #auto-musings-floating-window .amw-title {
@@ -257,7 +366,7 @@
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 8px;
+  padding: 6px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -269,36 +378,177 @@
   font-size: 0.9em;
 }
 
+.amw-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 9px;
+  margin-bottom: 7px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08));
+}
+
+.amw-entry .amw-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
+}
+
+.amw-entry .amw-time {
+  flex: 0 0 auto;
+  color: var(--SmartThemeQuoteColor, inherit);
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+.amw-entry .amw-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.78em;
+  white-space: nowrap;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+}
+
+.amw-entry.idle .amw-badge {
+  opacity: 0.45;
+}
+
+.amw-entry.idle {
+  opacity: 0.82;
+}
+
+.amw-entry.pushed {
+  border-color: rgba(139, 213, 255, 0.4);
+}
+
+.amw-entry .amw-content {
+  width: 100%;
+  min-width: 0;
+  color: var(--SmartThemeQuoteColor, inherit);
+  opacity: 0.78;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.amw-entry .amw-thought {
+  width: 100%;
+  padding: 7px 8px;
+  border-left: 3px solid var(--SmartThemeEmColor, #8bd5ff);
+  background: rgba(139, 213, 255, 0.07);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.amw-entry .amw-error {
+  width: 100%;
+  color: #f08a83;
+  overflow-wrap: anywhere;
+}
+
+.amw-entry .amw-world {
+  flex: 0 0 auto;
+  color: #75c990;
+  font-size: 0.75em;
+}
+
+.amw-entry .amw-dec {
+  flex: 0 0 auto;
+  font-size: 0.78em;
+  opacity: 0.85;
+}
+
+.amw-entry .amw-dec.push {
+  color: var(--SmartThemeEmColor, #8bd5ff);
+}
+
+.amw-entry .amw-dec.hold {
+  opacity: 0.6;
+}
+
+.amw-entry .amw-dec.error {
+  color: #f08a83;
+}
+
+.amw-entry .amw-manual {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(216, 196, 138, 0.25);
+}
+
+.amw-diagnostic {
+  border-color: rgba(227, 109, 100, 0.45);
+  background: rgba(227, 109, 100, 0.06);
+}
+
+.amw-diagnostic-title {
+  color: #f3a09a;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.amw-diagnostic-line,
+.amw-diagnostic-action {
+  overflow-wrap: anywhere;
+}
+
+.amw-diagnostic-action {
+  padding: 6px 7px;
+  border-left: 3px solid #d49b45;
+  background: rgba(212, 155, 69, 0.08);
+}
+
+.amw-technical {
+  opacity: 0.78;
+  overflow-wrap: anywhere;
+}
+
+.amw-technical summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.amw-forum-entry {
+  border-color: rgba(139, 213, 255, 0.35);
+}
+
+.amw-forum-post {
+  padding: 7px 8px;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+  border-radius: 5px;
+  background: rgba(139, 213, 255, 0.04);
+  overflow-wrap: anywhere;
+}
+
+.amw-forum-post-title {
+  font-weight: 600;
+}
+
+.amw-forum-post-meta,
+.amw-forum-readonly {
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.82em;
+  opacity: 0.72;
+}
+
+.amw-forum-intent {
+  margin-top: 4px;
+  padding-left: 7px;
+  border-left: 2px solid var(--SmartThemeEmColor, #8bd5ff);
+}
 
 @media (max-width: 900px) {
-  #auto-musings_container .auto-musings-grid,
-  #auto-musings_container .auto-musings-info-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  #auto-musings_container .auto-musings-title-row,
-  #auto-musings_container .checkbox_label {
-    flex-wrap: wrap;
-  }
-
-  #auto-musings_container .auto-musings-actions button {
-    flex: 1 1 100%;
-    width: 100%;
-    min-height: 44px;
-    white-space: normal;
-  }
-
-  #auto-musings_container input:not([type="checkbox"]):not([type="radio"]),
-  #auto-musings_container select,
-  #auto-musings_container textarea {
-    font-size: 16px;
-  }
-
   #auto-musings-floating-button {
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(130px, calc(86px + env(safe-area-inset-bottom)));
-    width: 52px;
-    height: 52px;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: 48px;
+    height: 48px;
   }
 
   #auto-musings-floating-button.active {
@@ -308,18 +558,19 @@
   }
 
   #auto-musings-floating-window {
-    width: min(92vw, 560px);
-    max-width: min(92vw, 560px);
-    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: min(72dvh, calc(100dvh - 110px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
     border-radius: 12px;
-    margin: auto;
-    padding: 0;
   }
 
   #auto-musings-floating-window .amw-head {
     flex-wrap: wrap;
     align-items: stretch;
-    padding: 10px 12px;
+    padding: 10px;
   }
 
   #auto-musings-floating-window .amw-title {
@@ -327,12 +578,16 @@
     white-space: normal;
   }
 
-  #auto-musings-floating-window .amw-tools { display: flex; flex-wrap: wrap; gap: 4px;
+  #auto-musings-floating-window .amw-tools {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
     margin-left: 0;
   }
 
-  #auto-musings-floating-window .amw-tools button { flex: 1 1 auto; min-width: 30%;
+  #auto-musings-floating-window .amw-tools button {
+    width: 100%;
+    min-width: 0;
     min-height: 44px;
     padding: 7px 6px;
     white-space: normal;
@@ -343,4 +598,3 @@
     padding: 8px;
   }
 }
-
