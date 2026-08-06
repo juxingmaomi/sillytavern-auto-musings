@@ -46,6 +46,23 @@
   min-width: 0;
 }
 
+#auto-musings_container .auto-musings-heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+#auto-musings_container .auto-musings-version,
+#auto-musings-floating-window .amw-version {
+  color: var(--SmartThemeQuoteColor, inherit);
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 #auto-musings_container .auto-musings-status {
   display: inline-flex;
   align-items: center;
@@ -266,8 +283,16 @@
   z-index: 99999;
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  margin: 0;
+  padding: 0;
   border-radius: 50%;
-  display: flex;
+  display: flex !important;
+  visibility: visible;
+  opacity: 1;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -278,6 +303,10 @@
   transition: transform 0.15s, background 0.15s, opacity 0.15s;
   user-select: none;
   touch-action: manipulation;
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1;
 }
 
 #auto-musings-floating-button:hover {
@@ -329,7 +358,10 @@
 }
 
 #auto-musings-floating-window.show {
-  display: flex;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 #auto-musings-floating-window .amw-head {
@@ -549,12 +581,20 @@
     bottom: calc(82px + env(safe-area-inset-bottom));
     width: 48px;
     height: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    min-height: 48px;
+    max-height: 48px;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 
   #auto-musings-floating-button.active {
-    visibility: hidden;
-    pointer-events: none;
-    opacity: 0;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
   }
 
   #auto-musings-floating-window {

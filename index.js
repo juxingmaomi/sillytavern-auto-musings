@@ -1,8 +1,8 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.0
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.1
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.0';
+const EXTENSION_VERSION = '1.5.1';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -1636,7 +1636,7 @@ return `
     <div class="inline-drawer">
       <div class="inline-drawer-toggle inline-drawer-header">
         <div class="auto-musings-title-row">
-          <b>Auto Musings</b>
+          <b class="auto-musings-heading">Auto Musings <span class="auto-musings-version">v${EXTENSION_VERSION}</span></b>
           <span class="auto-musings-status" data-auto-musings-status data-tone="standby">待机</span>
         </div>
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
@@ -1913,53 +1913,96 @@ setTimeout(() => {
 }
 
 function toggleFloatingWindow(forceOpen = null) {
+createFloatingUI();
 const win = document.getElementById(FLOAT_WIN_ID);
 const btn = document.getElementById(FLOAT_BTN_ID);
-if (!win) return;
+if (!win) {
+  console.warn('[Auto Musings] Floating console could not be created');
+  return false;
+}
 
-state.windowOpen = forceOpen !== null ? forceOpen : !state.windowOpen;
+const currentlyOpen = win.classList.contains('show');
+state.windowOpen = forceOpen !== null ? !!forceOpen : !currentlyOpen;
 if (state.windowOpen) {
   state.unreadCount = 0;
   win.classList.add('show');
+  win.setAttribute('aria-hidden', 'false');
   if (btn) btn.classList.add('active');
+  btn?.setAttribute('aria-expanded', 'true');
   updateFloatingWindowUI();
 } else {
   win.classList.remove('show');
+  win.setAttribute('aria-hidden', 'true');
   if (btn) btn.classList.remove('active');
+  btn?.setAttribute('aria-expanded', 'false');
   updateFloatingWindowUI();
 }
+return true;
 }
 
 function createFloatingUI() {
-if (document.getElementById(FLOAT_BTN_ID)) return;
+if (!document.body) return false;
 
-const floatBtn = document.createElement('div');
-floatBtn.id = FLOAT_BTN_ID;
+let floatBtn = document.getElementById(FLOAT_BTN_ID);
+if (floatBtn && (floatBtn.tagName !== 'BUTTON' || floatBtn.dataset.autoMusingsUiVersion !== EXTENSION_VERSION)) {
+  floatBtn.remove();
+  floatBtn = null;
+}
+if (!floatBtn) {
+  floatBtn = document.createElement('button');
+  floatBtn.id = FLOAT_BTN_ID;
+  floatBtn.type = 'button';
+  floatBtn.innerHTML = `
+    <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+    <span class="amf-badge">0</span>
+  `;
+  document.body.appendChild(floatBtn);
+}
+floatBtn.dataset.autoMusingsUiVersion = EXTENSION_VERSION;
 floatBtn.title = '\u6253\u5f00 Auto Musings \u6f2b\u60f3\u53f0';
-floatBtn.innerHTML = `
-  <i class="fa-solid fa-lightbulb"></i>
-  <span class="amf-badge">0</span>
-`;
-floatBtn.addEventListener('click', () => toggleFloatingWindow());
-document.body.appendChild(floatBtn);
+floatBtn.setAttribute('aria-label', '\u6253\u5f00 Auto Musings \u6f2b\u60f3\u53f0');
+floatBtn.setAttribute('aria-controls', FLOAT_WIN_ID);
+floatBtn.setAttribute('aria-expanded', String(state.windowOpen));
+floatBtn.onclick = () => toggleFloatingWindow();
 
-const floatWin = document.createElement('div');
-floatWin.id = FLOAT_WIN_ID;
-floatWin.innerHTML = `
-  <div class="amw-head">
-    <div class="amw-title">Auto Musings \u6f2b\u60f3\u53f0</div>
-    <div class="amw-tools">
-      <button id="auto-musings-copy-diagnostic" class="menu_button" title="复制最近一条故障诊断（自动保护 Key 和私密地址）">复制诊断</button>
-      <button id="auto-musings-clear-log" class="menu_button" title="\u6e05\u7a7a\u6240\u6709\u6f2b\u60f3\u65e5\u5fd7">\u6e05\u7a7a</button>
-      <button id="auto-musings-close-win" class="menu_button" title="\u5173\u95ed\u7a97\u53e3">\u5173\u95ed</button>
+let floatWin = document.getElementById(FLOAT_WIN_ID);
+const floatingWindowIsComplete = floatWin
+  && floatWin.querySelector('.amw-body')
+  && floatWin.querySelector('#auto-musings-copy-diagnostic')
+  && floatWin.querySelector('#auto-musings-clear-log')
+  && floatWin.querySelector('#auto-musings-close-win');
+if (floatWin && (floatWin.dataset.autoMusingsUiVersion !== EXTENSION_VERSION || !floatingWindowIsComplete)) {
+  floatWin.remove();
+  floatWin = null;
+}
+if (!floatWin) {
+  floatWin = document.createElement('div');
+  floatWin.id = FLOAT_WIN_ID;
+  floatWin.setAttribute('role', 'dialog');
+  floatWin.setAttribute('aria-label', `Auto Musings \u6f2b\u60f3\u53f0 v${EXTENSION_VERSION}`);
+  floatWin.innerHTML = `
+    <div class="amw-head">
+      <div class="amw-title">Auto Musings \u6f2b\u60f3\u53f0 <span class="amw-version">v${EXTENSION_VERSION}</span></div>
+      <div class="amw-tools">
+        <button id="auto-musings-copy-diagnostic" class="menu_button" title="复制最近一条故障诊断（自动保护 Key 和私密地址）">复制诊断</button>
+        <button id="auto-musings-clear-log" class="menu_button" title="\u6e05\u7a7a\u6240\u6709\u6f2b\u60f3\u65e5\u5fd7">\u6e05\u7a7a</button>
+        <button id="auto-musings-close-win" class="menu_button" title="\u5173\u95ed\u7a97\u53e3">\u5173\u95ed</button>
+      </div>
     </div>
-  </div>
-  <div class="amw-body"></div>
-`;
-document.body.appendChild(floatWin);
+    <div class="amw-body"></div>
+  `;
+  document.body.appendChild(floatWin);
+}
+floatWin.dataset.autoMusingsUiVersion = EXTENSION_VERSION;
+floatWin.classList.toggle('show', state.windowOpen);
+floatWin.setAttribute('aria-hidden', String(!state.windowOpen));
+floatBtn.classList.toggle('active', state.windowOpen);
 
-document.getElementById('auto-musings-close-win')?.addEventListener('click', () => toggleFloatingWindow(false));
-document.getElementById('auto-musings-copy-diagnostic')?.addEventListener('click', async () => {
+const closeButton = floatWin.querySelector('#auto-musings-close-win');
+const copyButton = floatWin.querySelector('#auto-musings-copy-diagnostic');
+const clearButton = floatWin.querySelector('#auto-musings-clear-log');
+closeButton.onclick = () => toggleFloatingWindow(false);
+copyButton.onclick = async () => {
   const logs = getDisplayLogs();
   const diagnostic = [...logs].reverse().find((item) => item?.kind === 'diagnostic');
   if (!diagnostic) {
@@ -1969,8 +2012,8 @@ document.getElementById('auto-musings-copy-diagnostic')?.addEventListener('click
   const copied = await copyText(formatDiagnosticCopy(diagnostic));
   if (copied) window.toastr?.success?.('诊断信息已复制，可以直接发给猴猴');
   else window.toastr?.error?.('复制失败，请展开技术详情后手动选择');
-});
-document.getElementById('auto-musings-clear-log')?.addEventListener('click', async () => {
+};
+clearButton.onclick = async () => {
   if (confirm('\u786e\u5b9a\u8981\u6e05\u7a7a\u6240\u6709\u6f2b\u60f3\u65e5\u5fd7\u5417\uff1f')) {
     if (state.serverAvailable) {
       try {
@@ -1988,9 +2031,10 @@ document.getElementById('auto-musings-clear-log')?.addEventListener('click', asy
     state.unreadCount = 0;
     updateFloatingWindowUI();
   }
-});
+};
 
 updateFloatingWindowUI();
+return true;
 }
 
 function bindSettingsUI() {
@@ -2131,9 +2175,14 @@ if (eventTypes.APP_READY) source.on(eventTypes.APP_READY, () => {
   addMenuButton();
   createFloatingUI();
 });
-window.addEventListener('focus', () => scheduleServerSync(100));
+window.addEventListener('focus', () => {
+  createFloatingUI();
+  scheduleServerSync(100);
+});
+window.addEventListener('pageshow', createFloatingUI);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
+    createFloatingUI();
     scheduleServerSync(100);
     resumeFrontendTimers();
   } else {
@@ -2156,6 +2205,7 @@ restartTimers();
 void initializeServerBridge();
 setTimeout(checkIdle, 3000);
 state.uiRefreshTimer = setInterval(() => {
+createFloatingUI();
 updateUI();
 updateFloatingWindowUI();
 }, 5000);
