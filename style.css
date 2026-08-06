@@ -1,4 +1,45 @@
-﻿#auto-musings_container .auto-musings-title-row {
+﻿#auto-musings_container .inline-drawer,
+#auto-musings_container .inline-drawer-content,
+#auto-musings_container details,
+#auto-musings_container label,
+#auto-musings_container .auto-musings-section {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#auto-musings_container .inline-drawer-content {
+  overflow-x: hidden;
+}
+
+#auto-musings_container input:not([type="checkbox"]):not([type="radio"]),
+#auto-musings_container select,
+#auto-musings_container textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#auto-musings_container button,
+#auto-musings_container summary,
+#auto-musings_container span,
+#auto-musings_container strong {
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container details > summary {
+  min-height: 44px;
+  padding: 8px 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#auto-musings_container details:not([open]) > summary {
+  margin-bottom: 0;
+}
+
+#auto-musings_container .auto-musings-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -15,7 +56,7 @@
   color: var(--SmartThemeQuoteColor, inherit);
   font-size: 0.85em;
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 #auto-musings_container .auto-musings-status[data-tone="active"] {
@@ -89,338 +130,217 @@
   font-weight: 500;
 }
 
-#auto-musings_container .auto-musings-log {
-  min-height: 1.4em;
-  padding: 7px 8px;
-  border-left: 3px solid var(--SmartThemeEmColor, #8bd5ff);
-  color: var(--SmartThemeQuoteColor, inherit);
-  font-size: 0.9em;
-  overflow-wrap: anywhere;
-}
-
 #auto-musings-wand-btn .auto-musings-menu-icon {
   color: var(--SmartThemeEmColor, #8bd5ff);
 }
 
-@media (max-width: 600px) {
-  #auto-musings_container .auto-musings-grid,
-  #auto-musings_container .auto-musings-info-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
-  #auto-musings_container .auto-musings-actions button {
-    flex: 1 1 100%;
-  }
-}
 
-/* ===== v1.3.0锛氭湇鍔＄浼翠荆銆佷笂涓嬫枃銆佸壇 API 涓庢极鎯冲彴 ===== */
+/* ===== v1.5.0 ????? ===== */
 
-#auto-musings_container .auto-musings-section {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
-  font-size: 0.9em;
-  color: var(--SmartThemeQuoteColor, inherit);
-}
-
-#auto-musings_container .auto-musings-runtime-section {
-  padding: 10px;
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
-  border-radius: 6px;
-  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.08));
-}
-
-#auto-musings_container .auto-musings-section-title {
-  margin-bottom: 8px;
-  color: var(--SmartThemeBodyColor, inherit);
-  font-weight: 600;
-}
-
-#auto-musings_container .auto-musings-server-state {
-  margin-top: 8px;
-  padding: 7px 8px;
-  border-left: 3px solid #d49b45;
-  background: rgba(212, 155, 69, 0.08);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-#auto-musings_container .auto-musings-server-state[data-connected="true"] {
-  border-left-color: #63bd83;
-  background: rgba(99, 189, 131, 0.08);
-}
-
-#auto-musings_container input:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-#auto-musings_container .auto-musings-seed-field {
-  margin-top: 8px;
-}
-
-#auto-musings_container .auto-musings-seeds {
-  width: 100%;
-  min-height: 88px;
-  resize: vertical;
-  margin-top: 4px;
-  box-sizing: border-box;
-}
-
-#auto-musings_container .auto-musings-hint {
-  color: var(--SmartThemeQuoteColor, inherit);
-  font-size: 0.82em;
-  opacity: 0.75;
-  margin-top: 4px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-#auto-musings_container .auto-musings-open-console {
-  width: 100%;
-  margin-top: 6px;
-}
-
-/* ===== v1.3.2 鎮诞鎸夐挳 (瀹夊叏鍖洪伩闅滀笌灞呬腑淇濆簳) ===== */
 #auto-musings-floating-button {
-  position: fixed !important;
-  right: calc(16px + env(safe-area-inset-right, 0px)) !important;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-  z-index: 2147483646 !important;
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 50% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.4));
-  background: rgba(30, 30, 40, 0.9) !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
-  transition: transform 0.15s, background 0.15s;
-  user-select: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-#auto-musings-floating-button:hover {
-  transform: scale(1.08);
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(130px, calc(82px + env(safe-area-inset-bottom)));
+  z-index: 99999;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+  background: var(--SmartThemeBlurTintColor, rgba(18, 18, 26, 0.92));
+  color: var(--SmartThemeBodyColor, #eee);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  touch-action: manipulation;
 }
 
 #auto-musings-floating-button.active {
-  background: var(--SmartThemeEmColor, #8bd5ff) !important;
-  color: #111 !important;
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+#auto-musings-floating-button .amf-icon {
+  font-size: 22px;
+  line-height: 1;
 }
 
 #auto-musings-floating-button .amf-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: #e0584b;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e36d64;
   color: #fff;
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 11px;
+  line-height: 18px;
   text-align: center;
+  padding: 0 4px;
   display: none;
-  pointer-events: none;
 }
 
-#auto-musings-floating-button .amf-badge.show {
+#auto-musings-floating-button .amf-badge.has-unread {
   display: block;
 }
 
-/* ===== v1.3.2 婕兂鍙扮獥鍙?(瑙嗗彛缁濆灞呬腑锛岄槻姝㈠亸绉伙紝姘镐笉閿佸睆) ===== */
 #auto-musings-floating-window {
-  display: none !important;
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  z-index: 2147483647 !important;
-  width: min(92vw, 560px) !important;
-  max-width: 92vw !important;
-  height: auto !important;
-  max-height: calc(100dvh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-  flex-direction: column !important;
-  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.3)) !important;
-  background: #1e1e26 !important; 
-  color: #eeeeee !important;
-  border-radius: 10px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
-  overflow: hidden !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  display: none;
+  z-index: 99998;
+  width: min(92vw, 560px);
+  max-width: min(92vw, 560px);
+  max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  flex-direction: column;
+  border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+  background: var(--SmartThemeBlurTintColor, rgba(18, 18, 26, 0.96));
+  color: var(--SmartThemeBodyColor, #eee);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 
 #auto-musings-floating-window.show {
-  display: flex !important;
+  display: flex;
+}
+
+#auto-musings-floating-window[open] {
+  display: flex;
+}
+
+#auto-musings-floating-window::backdrop {
+  background: rgba(5, 7, 12, 0.45);
+  backdrop-filter: blur(2px);
 }
 
 #auto-musings-floating-window .amw-head {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  padding: 10px 12px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
-  background: #14141c !important; 
-  position: sticky !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 10 !important;
-  flex: 0 0 auto !important;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+  flex: 0 0 auto;
+  background: inherit;
 }
 
 #auto-musings-floating-window .amw-title {
-  font-weight: 600 !important;
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-  font-size: 1.1em !important;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #auto-musings-floating-window .amw-tools {
-  display: flex !important;
-  gap: 8px !important;
-  flex: 0 0 auto !important;
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
 }
 
 #auto-musings-floating-window .amw-tools button {
-  padding: 6px 12px !important;
-  font-size: 1em !important;
-  border-radius: 6px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  cursor: pointer !important;
-}
-#auto-musings-floating-window .amw-tools button:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
+  padding: 2px 8px;
+  font-size: 0.85em;
+  border-radius: 4px;
 }
 
 #auto-musings-floating-window .amw-body {
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  flex: 1 1 auto !important;
-  padding: 12px !important;
-  min-height: 0 !important;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 #auto-musings-floating-window .amw-empty {
-  padding: 30px 8px !important;
-  text-align: center !important;
-  opacity: 0.6 !important;
-  font-size: 0.95em !important;
+  padding: 24px 8px;
+  text-align: center;
+  opacity: 0.55;
+  font-size: 0.9em;
 }
 
-.amw-entry {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 6px !important;
-  padding: 10px !important;
-  margin-bottom: 10px !important;
-  border-radius: 8px !important;
-  font-size: 0.9em !important;
-  line-height: 1.5 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(255, 255, 255, 0.03) !important;
-}
 
-.amw-entry .amw-meta {
-  display: flex !important;
-  align-items: center !important;
-  flex-wrap: wrap !important;
-  gap: 6px !important;
-  width: 100% !important;
-}
+@media (max-width: 900px) {
+  #auto-musings_container .auto-musings-grid,
+  #auto-musings_container .auto-musings-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.amw-entry .amw-time {
-  flex: 0 0 auto !important;
-  opacity: 0.6 !important;
-  font-size: 0.85em !important;
-}
+  #auto-musings_container .auto-musings-title-row,
+  #auto-musings_container .checkbox_label {
+    flex-wrap: wrap;
+  }
 
-.amw-entry .amw-badge {
-  flex: 0 0 auto !important;
-  padding: 2px 8px !important;
-  border-radius: 999px !important;
-  font-size: 0.8em !important;
-  white-space: nowrap !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
+  #auto-musings_container .auto-musings-actions button {
+    flex: 1 1 100%;
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+  }
 
-.amw-entry.idle .amw-badge {
-  opacity: 0.5 !important;
-}
+  #auto-musings_container input:not([type="checkbox"]):not([type="radio"]),
+  #auto-musings_container select,
+  #auto-musings_container textarea {
+    font-size: 16px;
+  }
 
-.amw-entry.idle {
-  opacity: 0.8 !important;
-}
+  #auto-musings-floating-button {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(130px, calc(86px + env(safe-area-inset-bottom)));
+    width: 52px;
+    height: 52px;
+  }
 
-.amw-entry.pushed {
-  border-color: rgba(139, 213, 255, 0.4) !important;
-}
+  #auto-musings-floating-button.active {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+  }
 
-.amw-entry .amw-content {
-  width: 100% !important;
-  min-width: 0 !important;
-  opacity: 0.8 !important;
-  overflow-wrap: anywhere !important;
-  white-space: pre-wrap !important;
-}
+  #auto-musings-floating-window {
+    width: min(92vw, 560px);
+    max-width: min(92vw, 560px);
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    border-radius: 12px;
+    margin: auto;
+    padding: 0;
+  }
 
-.amw-entry .amw-thought {
-  width: 100% !important;
-  padding: 8px !important;
-  border-left: 3px solid #8bd5ff !important;
-  background: rgba(139, 213, 255, 0.1) !important;
-  overflow-wrap: anywhere !important;
-  white-space: pre-wrap !important;
-  border-radius: 0 4px 4px 0 !important;
-}
+  #auto-musings-floating-window .amw-head {
+    flex-wrap: wrap;
+    align-items: stretch;
+    padding: 10px 12px;
+  }
 
-.amw-entry .amw-error {
-  width: 100% !important;
-  color: #ff8a80 !important;
-  overflow-wrap: anywhere !important;
-}
+  #auto-musings-floating-window .amw-title {
+    flex-basis: 100%;
+    white-space: normal;
+  }
 
-.amw-entry .amw-world {
-  flex: 0 0 auto !important;
-  color: #7ee0a3 !important;
-  font-size: 0.8em !important;
-}
+  #auto-musings-floating-window .amw-tools { display: flex; flex-wrap: wrap; gap: 4px;
+    width: 100%;
+    margin-left: 0;
+  }
 
-.amw-entry .amw-dec {
-  flex: 0 0 auto !important;
-  font-size: 0.8em !important;
-  opacity: 0.9 !important;
-}
+  #auto-musings-floating-window .amw-tools button { flex: 1 1 auto; min-width: 30%;
+    min-height: 44px;
+    padding: 7px 6px;
+    white-space: normal;
+    line-height: 1.2;
+  }
 
-.amw-entry .amw-dec.push {
-  color: #8bd5ff !important;
-}
-
-.amw-entry .amw-dec.hold {
-  opacity: 0.6 !important;
-}
-
-.amw-entry .amw-dec.error {
-  color: #ff8a80 !important;
-}
-
-.amw-entry .amw-manual {
-  flex: 0 0 auto !important;
-  font-size: 0.75em !important;
-  padding: 2px 6px !important;
-  border-radius: 4px !important;
-  background: rgba(216, 196, 138, 0.3) !important;
+  #auto-musings-floating-window .amw-body {
+    padding: 8px;
+  }
 }
 
