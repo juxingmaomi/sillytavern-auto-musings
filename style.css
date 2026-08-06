@@ -1,4 +1,4 @@
-#auto-musings_container .auto-musings-title-row {
+﻿#auto-musings_container .auto-musings-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -113,7 +113,7 @@
   }
 }
 
-/* ===== v1.3.0：服务端伴侣、上下文、副 API 与漫想台 ===== */
+/* ===== v1.3.0锛氭湇鍔＄浼翠荆銆佷笂涓嬫枃銆佸壇 API 涓庢极鎯冲彴 ===== */
 
 #auto-musings_container .auto-musings-section {
   margin-top: 12px;
@@ -181,7 +181,7 @@
   margin-top: 6px;
 }
 
-/* ===== v1.3.2 悬浮按钮 (安全区避障与居中保底) ===== */
+/* ===== v1.3.2 鎮诞鎸夐挳 (瀹夊叏鍖洪伩闅滀笌灞呬腑淇濆簳) ===== */
 #auto-musings-floating-button {
   position: fixed !important;
   right: calc(16px + env(safe-area-inset-right, 0px)) !important;
@@ -234,7 +234,7 @@
   display: block;
 }
 
-/* ===== v1.3.2 漫想台窗口 (视口绝对居中，防止偏移，永不锁屏) ===== */
+/* ===== v1.3.2 婕兂鍙扮獥鍙?(瑙嗗彛缁濆灞呬腑锛岄槻姝㈠亸绉伙紝姘镐笉閿佸睆) ===== */
 #auto-musings-floating-window {
   display: none !important;
   position: fixed !important;
@@ -423,3 +423,4 @@
   border-radius: 4px !important;
   background: rgba(216, 196, 138, 0.3) !important;
 }
+
