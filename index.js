@@ -1,8 +1,8 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.1
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.2
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.1';
+const EXTENSION_VERSION = '1.5.2';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -86,6 +86,8 @@ promptSnapshotAt: null,
 serverPausedReason: '',
 pageSuspended: document.visibilityState === 'hidden',
 };
+
+let floatingPositionRepairFrame = null;
 
 const clamp = (value, min, max, fallback) => {
 const number = Number(value);
@@ -1912,6 +1914,46 @@ setTimeout(() => {
 }, 250);
 }
 
+function keepFloatingElementInViewport(element) {
+if (!element || getComputedStyle(element).display === 'none') return;
+const rect = element.getBoundingClientRect();
+if (!rect.width || !rect.height) return;
+
+const viewport = window.visualViewport;
+const viewportTop = viewport?.offsetTop || 0;
+const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+const margin = 8;
+let shift = 0;
+if (rect.top < viewportTop + margin) {
+  shift = viewportTop + margin - rect.top;
+} else if (rect.bottom > viewportBottom - margin) {
+  shift = viewportBottom - margin - rect.bottom;
+}
+if (Math.abs(shift) < 0.5) return;
+
+const currentTop = Number.parseFloat(getComputedStyle(element).top);
+if (Number.isFinite(currentTop)) element.style.top = `${Math.max(0, currentTop + shift)}px`;
+}
+
+function repairFloatingPositionNow() {
+const button = document.getElementById(FLOAT_BTN_ID);
+const panel = document.getElementById(FLOAT_WIN_ID);
+if (!window.matchMedia('(max-width: 900px)').matches) {
+  button?.style.removeProperty('top');
+  panel?.style.removeProperty('top');
+  return;
+}
+keepFloatingElementInViewport(panel?.classList.contains('show') ? panel : button);
+}
+
+function scheduleFloatingPositionRepair() {
+if (floatingPositionRepairFrame !== null) return;
+floatingPositionRepairFrame = requestAnimationFrame(() => {
+  floatingPositionRepairFrame = null;
+  repairFloatingPositionNow();
+});
+}
+
 function toggleFloatingWindow(forceOpen = null) {
 createFloatingUI();
 const win = document.getElementById(FLOAT_WIN_ID);
@@ -1937,6 +1979,8 @@ if (state.windowOpen) {
   btn?.setAttribute('aria-expanded', 'false');
   updateFloatingWindowUI();
 }
+repairFloatingPositionNow();
+scheduleFloatingPositionRepair();
 return true;
 }
 
@@ -2034,6 +2078,8 @@ clearButton.onclick = async () => {
 };
 
 updateFloatingWindowUI();
+repairFloatingPositionNow();
+scheduleFloatingPositionRepair();
 return true;
 }
 
@@ -2180,6 +2226,11 @@ window.addEventListener('focus', () => {
   scheduleServerSync(100);
 });
 window.addEventListener('pageshow', createFloatingUI);
+window.addEventListener('resize', scheduleFloatingPositionRepair);
+window.addEventListener('orientationchange', scheduleFloatingPositionRepair);
+window.addEventListener('scroll', scheduleFloatingPositionRepair, true);
+window.visualViewport?.addEventListener('resize', scheduleFloatingPositionRepair);
+window.visualViewport?.addEventListener('scroll', scheduleFloatingPositionRepair);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     createFloatingUI();

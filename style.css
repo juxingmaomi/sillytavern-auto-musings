@@ -577,8 +577,9 @@
 
 @media (max-width: 900px) {
   #auto-musings-floating-button {
-    right: max(10px, env(safe-area-inset-right));
-    bottom: calc(82px + env(safe-area-inset-bottom));
+    top: calc(env(safe-area-inset-top, 0px) + 18px);
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: auto;
     width: 48px;
     height: 48px;
     min-width: 48px;
@@ -598,12 +599,14 @@
   }
 
   #auto-musings-floating-window {
-    left: max(8px, env(safe-area-inset-left));
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(82px + env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    top: max(calc(env(safe-area-inset-top, 0px) + 64px), 16dvh);
+    bottom: auto;
     width: auto;
+    height: min(72dvh, calc(84dvh - 82px - env(safe-area-inset-bottom, 0px)));
     max-width: none;
-    max-height: min(72dvh, calc(100dvh - 110px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+    max-height: min(72dvh, calc(84dvh - 82px - env(safe-area-inset-bottom, 0px)));
     border-radius: 12px;
   }
 
