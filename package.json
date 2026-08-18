@@ -1,9 +1,12 @@
 {
   "name": "sillytavern-auto-musings",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "private": true,
   "type": "module",
   "main": "server/index.mjs",
+  "scripts": {
+    "test": "node --test"
+  },
   "engines": {
     "node": ">=18"
   }
