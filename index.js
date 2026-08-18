@@ -1,8 +1,8 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.5
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.6
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.5';
+const EXTENSION_VERSION = '1.5.6';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -68,6 +68,8 @@ retryCheckTimer: null,
 uiRefreshTimer: null,
 isIdle: false,
 idleStartTime: null,
+pushCurveStartedAt: null,
+pushCurvePausedAt: null,
 lastCheckAt: null,
 lastMessageTime: null,
 lastMusing: null,
@@ -938,16 +940,39 @@ for (let index = chat.length - 1; index >= 0; index -= 1) {
 return null;
 }
 
-function getPushThreshold() {
+function getPushThreshold(now = Date.now()) {
 if (state.settings.pushMode === 'frequent') return 0.2;
 if (state.settings.pushMode === 'balanced') return 0.4;
 
-if (!state.idleStartTime) return 0.8;
-const hours = (Date.now() - state.idleStartTime) / (60 * 60 * 1000);
+if (state.pushCurveStartedAt === null) return 0.8;
+const curveNow = state.pushCurvePausedAt ?? now;
+const hours = Math.max(0, curveNow - state.pushCurveStartedAt) / (60 * 60 * 1000);
 if (hours < 0.5) return 0.8;
 if (hours < 1) return 0.6;
 if (hours < 3) return 0.4;
 return 0.2;
+}
+
+function startPushCurve(now = Date.now()) {
+state.pushCurveStartedAt = now;
+state.pushCurvePausedAt = null;
+}
+
+function resetPushCurve() {
+state.pushCurveStartedAt = null;
+state.pushCurvePausedAt = null;
+}
+
+function pausePushCurve(now = Date.now()) {
+if (state.pushCurveStartedAt !== null && state.pushCurvePausedAt === null) {
+  state.pushCurvePausedAt = now;
+}
+}
+
+function resumePushCurve(now = Date.now()) {
+if (state.pushCurveStartedAt === null || state.pushCurvePausedAt === null) return;
+state.pushCurveStartedAt += now - state.pushCurvePausedAt;
+state.pushCurvePausedAt = null;
 }
 
 function getRandomChatSnippet() {
@@ -1218,11 +1243,15 @@ recordEvent(`\u804a\u5929\u8bb0\u5f55\u4e0d\u591f\uff0c\u6539\u4e3a\u60f3\u5230\
 return { type: 'freeform', content: word, decision: 'hold' };
 }
 
-function shouldPush(musingType) {
+function determineMusingDecision(musingType, { manual = false, forceHidden = false, threshold } = {}) {
+if (musingType === 'idle') return 'idle';
+if (forceHidden) return 'hold';
+if (manual) return 'push';
+
 const score = musingType === 'context' ? 0.7 : 0.4;
-const threshold = getPushThreshold();
-console.log(`[Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${threshold}`);
-return score >= threshold;
+const activeThreshold = threshold ?? getPushThreshold();
+console.log(`[Auto Musings] \u63a8\u9001\u5224\u65ad score=${score} threshold=${activeThreshold}`);
+return score >= activeThreshold ? 'push' : 'hold';
 }
 
 async function triggerMusing(musing, manual = false) {
@@ -1266,7 +1295,7 @@ try {
 }
 }
 
-async function musingLoop(manual = false) {
+async function musingLoop(manual = false, forceHidden = false) {
 if (state.musingInFlight) return false;
 if (!manual && (!state.settings.enabled || !state.isIdle)) return false;
 if (!manual && (state.pageSuspended || document.visibilityState === 'hidden')) return false;
@@ -1274,6 +1303,7 @@ if (!manual && (state.pageSuspended || document.visibilityState === 'hidden')) r
 state.musingInFlight = true;
 try {
   let musing = await rollMusing();
+  if (manual && musing?.type === 'idle') musing = null;
   if (!musing && manual) {
     const seedList = getActiveSeedWords();
     const word = seedList[Math.floor(Math.random() * seedList.length)];
@@ -1283,14 +1313,25 @@ try {
   if (!musing) return false;
 
   state.lastMusing = musing;
-  const push = manual || shouldPush(musing.type);
-  musing.decision = push ? 'push' : (musing.type === 'idle' ? 'idle' : 'hold');
+  const decision = determineMusingDecision(musing.type, { manual, forceHidden });
+  const push = decision === 'push';
+  musing.decision = decision;
   musing.pushed = push;
   musing.manual = manual;
+  musing.testMode = manual ? (forceHidden ? 'hidden' : 'visible') : '';
   musing.ts = Date.now();
   musing.id = Math.random().toString(36).substring(2, 9);
 
-  if (!push) {
+  if (musing.type === 'idle') {
+    musing.decision = 'idle';
+    musing.pushed = false;
+    musing.status = 'idle';
+    pushLogEntry(musing);
+    recordEvent('\u8fd9\u6b21\u53ea\u662f\u53d1\u5446\uff0c\u6ca1\u6709\u751f\u6210\u6216\u53d1\u9001\u6f2b\u60f3');
+    return false;
+  }
+
+  if (decision === 'hold') {
     if (musing.type !== 'idle') {
       recordEvent('\u6b63\u5728\u901a\u8fc7\u526f API \u751f\u6210\u9690\u85cf\u6f2b\u60f3');
       const profile = getConnectionProfile(state.settings.secondaryProfileId);
@@ -1368,6 +1409,8 @@ try {
   if (succeeded && !manual) {
     stopMusingLoop();
     state.isIdle = false;
+    state.idleStartTime = null;
+    resetPushCurve();
     if (state.retryCheckTimer) clearTimeout(state.retryCheckTimer);
     state.retryCheckTimer = setTimeout(() => checkIdle(), state.settings.musingIntervalMinutes * 60 * 1000);
     void maybeTriggerForumFromMusing(musing);
@@ -1403,9 +1446,11 @@ state.musingTimer = null;
 function checkIdle() {
 if (state.pageSuspended || document.visibilityState === 'hidden') return;
 state.lastCheckAt = Date.now();
-if (!state.settings.enabled) {
-state.isIdle = false;
-stopMusingLoop();
+  if (!state.settings.enabled) {
+    state.isIdle = false;
+    state.idleStartTime = null;
+    resetPushCurve();
+    stopMusingLoop();
 updateUI();
 return;
 }
@@ -1419,15 +1464,17 @@ if (!lastTime) {
 
 const elapsed = Date.now() - lastTime;
 const threshold = state.settings.idleThresholdMinutes * 60 * 1000;
-if (elapsed >= threshold && !state.isIdle) {
-  state.isIdle = true;
-  state.idleStartTime = Date.now() - elapsed;
-  startMusingLoop();
+  if (elapsed >= threshold && !state.isIdle) {
+    state.isIdle = true;
+    state.idleStartTime = Date.now() - elapsed;
+    startPushCurve();
+    startMusingLoop();
   musingLoop().catch((error) => console.error('[Auto Musings] \u9996\u6b21\u6f2b\u60f3\u5931\u8d25:', error));
-} else if (elapsed < threshold && state.isIdle) {
-  state.isIdle = false;
-  state.idleStartTime = null;
-  stopMusingLoop();
+  } else if (elapsed < threshold && state.isIdle) {
+    state.isIdle = false;
+    state.idleStartTime = null;
+    resetPushCurve();
+    stopMusingLoop();
   recordEvent('\u68c0\u6d4b\u5230\u7528\u6237\u56de\u6765\uff0c\u9000\u51fa\u6f2b\u60f3\u6a21\u5f0f');
 }
 updateUI();
@@ -1438,6 +1485,7 @@ scheduleServerSync(100);
 if (!state.isIdle && !state.idleStartTime) return;
 state.isIdle = false;
 state.idleStartTime = null;
+resetPushCurve();
 stopMusingLoop();
 recordEvent('\u7528\u6237\u56de\u6765\u4e86\uff0c\u9000\u51fa\u6f2b\u60f3\u6a21\u5f0f');
 }
@@ -1445,6 +1493,7 @@ recordEvent('\u7528\u6237\u56de\u6765\u4e86\uff0c\u9000\u51fa\u6f2b\u60f3\u6a21\
 function onChatChanged() {
 state.isIdle = false;
 state.idleStartTime = null;
+resetPushCurve();
 state.lastMessageTime = null;
 state.promptSnapshot = [];
 state.promptSnapshotAt = null;
@@ -1462,7 +1511,10 @@ if (state.checkTimer) clearInterval(state.checkTimer);
 state.checkTimer = null;
 if (!state.settings.enabled || state.pageSuspended || document.visibilityState === 'hidden') {
 state.isIdle = false;
-if (!state.settings.enabled) state.idleStartTime = null;
+if (!state.settings.enabled) {
+  state.idleStartTime = null;
+  resetPushCurve();
+}
 stopMusingLoop();
 return;
 }
@@ -1476,6 +1528,7 @@ if (state.isIdle) {
 
 function suspendFrontendTimers() {
 state.pageSuspended = true;
+pausePushCurve();
 if (state.checkTimer) clearInterval(state.checkTimer);
 state.checkTimer = null;
 if (state.retryCheckTimer) clearTimeout(state.retryCheckTimer);
@@ -1486,6 +1539,7 @@ recordEvent('页面已休眠，漫想计时暂停且不会积压');
 
 function resumeFrontendTimers() {
 state.pageSuspended = false;
+resumePushCurve();
 restartTimers();
 recordEvent('页面已恢复，只重新检查当前状态，不补算休眠期间任务');
 checkIdle();
@@ -1573,6 +1627,11 @@ const testButton = root.querySelector('#auto-musings-test');
 if (testButton) {
   testButton.disabled = state.musingInFlight || state.generating;
   testButton.classList.toggle('disabled', testButton.disabled);
+}
+const hiddenTestButton = root.querySelector('#auto-musings-test-hidden');
+if (hiddenTestButton) {
+  hiddenTestButton.disabled = state.musingInFlight || state.generating;
+  hiddenTestButton.classList.toggle('disabled', hiddenTestButton.disabled);
 }
 const contextDepth = root.querySelector('#auto-musings-context-depth');
 if (contextDepth) contextDepth.disabled = state.settings.contextMode !== 'recent';
@@ -1884,9 +1943,13 @@ return `
           </div>
         </details>
         <div class="auto-musings-actions">
-          <button id="auto-musings-test" type="button" class="menu_button menu_button_icon" title="立即生成一次漫想">
+          <button id="auto-musings-test" type="button" class="menu_button menu_button_icon" title="使用主 API 立即生成一条可见漫想">
             <i class="fa-solid fa-wand-magic-sparkles"></i>
-            <span>立即测试一次</span>
+            <span>测试可见漫想</span>
+          </button>
+          <button id="auto-musings-test-hidden" type="button" class="menu_button menu_button_icon" title="使用副 API 生成隐藏漫想并写入世界书">
+            <i class="fa-solid fa-eye-slash"></i>
+            <span>测试隐藏漫想</span>
           </button>
           <button id="auto-musings-check" type="button" class="menu_button menu_button_icon" title="立即检查当前聊天是否空闲">
             <i class="fa-solid fa-rotate"></i>
@@ -2404,7 +2467,18 @@ for (const [profileSelector, modelSelector] of [
 }
 root.querySelector('#auto-musings-context-mode')?.addEventListener('change', updateUI);
 root.querySelector('#auto-musings-test')?.addEventListener('click', () => {
-musingLoop(true).catch((error) => console.error('[Auto Musings] \u6d4b\u8bd5\u5931\u8d25:', error));
+musingLoop(true, false).catch((error) => console.error('[Auto Musings] \u53ef\u89c1\u6f2b\u60f3\u6d4b\u8bd5\u5931\u8d25:', error));
+});
+root.querySelector('#auto-musings-test-hidden')?.addEventListener('click', async () => {
+  try {
+    await musingLoop(true, true);
+    toggleFloatingWindow(true);
+    if (state.lastMusing?.status === 'hidden_saved') {
+      window.toastr?.success?.('\u9690\u85cf\u6f2b\u60f3\u5df2\u751f\u6210\u5e76\u5199\u5165\u4e16\u754c\u4e66');
+    }
+  } catch (error) {
+    console.error('[Auto Musings] \u9690\u85cf\u6f2b\u60f3\u6d4b\u8bd5\u5931\u8d25:', error);
+  }
 });
 root.querySelector('#auto-musings-check')?.addEventListener('click', () => {
 checkIdle();
@@ -2566,7 +2640,9 @@ updateFloatingWindowUI();
     openSettings,
     openConsole: () => toggleFloatingWindow(true),
     checkNow: checkIdle,
-    test: () => musingLoop(true),
+    test: () => musingLoop(true, false),
+    testVisible: () => musingLoop(true, false),
+    testHidden: () => musingLoop(true, true),
     getState: () => ({
       version: EXTENSION_VERSION,
       enabled: state.settings.enabled,
@@ -2574,6 +2650,7 @@ updateFloatingWindowUI();
       generating: state.generating,
       lastCheckAt: state.lastCheckAt,
       lastMessageTime: state.lastMessageTime,
+      pushCurveStartedAt: state.pushCurveStartedAt,
       lastMusing: state.lastMusing ? { ...state.lastMusing } : null,
       lastEvent: state.lastEvent,
       serverAvailable: state.serverAvailable,
