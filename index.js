@@ -1,8 +1,8 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.6
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.7
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.6';
+const EXTENSION_VERSION = '1.5.7';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -552,11 +552,19 @@ const timestamp = typeof value === 'number' ? value : Date.parse(value);
 return Number.isFinite(timestamp) ? timestamp : null;
 }
 
+function getLiveContext() {
+const liveContext = globalThis.SillyTavern?.getContext?.();
+if (liveContext && typeof liveContext === 'object') state.ctx = liveContext;
+return state.ctx;
+}
+
 function getCurrentCharacter() {
-const characterId = state.ctx?.characterId;
-return characterId === undefined || characterId === null
-  ? null
-  : state.ctx?.characters?.[characterId] || null;
+const context = getLiveContext();
+const characterId = context?.characterId;
+if (characterId !== undefined && characterId !== null && context?.characters?.[characterId]) {
+  return context.characters[characterId];
+}
+return context?.character || null;
 }
 
 function getCurrentWorldName() {
@@ -565,7 +573,8 @@ return character?.data?.extensions?.world || character?.data?.world || character
 }
 
 function getVisibleChatSnapshot() {
-const chat = state.ctx?.chat;
+const context = getLiveContext();
+const chat = context?.chat;
 if (!Array.isArray(chat)) return [];
 return chat
 .filter((message) => message?.mes && !message?.is_system)
@@ -573,7 +582,7 @@ return chat
   const role = message.is_user ? 'user' : 'assistant';
   return {
     role,
-    name: message.name || (role === 'user' ? state.ctx?.name1 : state.ctx?.name2) || (role === 'user' ? 'User' : 'Assistant'),
+    name: message.name || (role === 'user' ? context?.name1 : context?.name2) || (role === 'user' ? 'User' : 'Assistant'),
     content: String(message.mes).trim(),
     timestamp: parseMessageTimestamp(message),
   };
@@ -619,7 +628,7 @@ return messages;
 
 function getConnectionProfiles() {
 try {
-  return state.ctx?.ConnectionManagerRequestService?.getSupportedProfiles?.() || [];
+  return getLiveContext()?.ConnectionManagerRequestService?.getSupportedProfiles?.() || [];
 } catch (error) {
   console.warn('[Auto Musings] Connection Profiles unavailable:', error);
   return [];
@@ -633,7 +642,7 @@ return getConnectionProfiles().find((profile) => profile.id === profileId) || nu
 function getProfilePayload(profileId, modelOverride = '') {
 const profile = getConnectionProfile(profileId);
 if (!profile) return null;
-const apiMap = state.ctx?.CONNECT_API_MAP?.[profile.api] || {};
+const apiMap = getLiveContext()?.CONNECT_API_MAP?.[profile.api] || {};
 return {
   id: profile.id,
   name: profile.name,
@@ -696,16 +705,17 @@ scheduleServerSync(50);
 }
 
 function getAnimaSnapshot() {
-const files = state.ctx?.chatMetadata?.anima_rag_active_files;
+const files = getLiveContext()?.chatMetadata?.anima_rag_active_files;
 return {
   activeFiles: Array.isArray(files) ? [...new Set(files.map(String).filter(Boolean))] : [],
 };
 }
 
 async function serverRequest(pathname, body = {}) {
+const context = getLiveContext();
 const response = await fetch(`${SERVER_API_BASE}${pathname}`, {
   method: 'POST',
-  headers: state.ctx?.getRequestHeaders?.() || { 'Content-Type': 'application/json' },
+  headers: context?.getRequestHeaders?.() || { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
 });
 const text = await response.text();
@@ -727,6 +737,7 @@ return data;
 
 function getServerSyncPayload() {
 const character = getCurrentCharacter();
+const context = getLiveContext();
 return {
   settings: {
     enabled: false,
@@ -756,8 +767,8 @@ return {
   promptSnapshot: state.promptSnapshot,
   promptSnapshotAt: state.promptSnapshotAt,
   chat: getVisibleChatSnapshot(),
-  chatId: state.ctx?.chatId || state.ctx?.getCurrentChatId?.() || '',
-  characterName: character?.name || character?.data?.name || state.ctx?.name2 || '',
+  chatId: context?.chatId || context?.getCurrentChatId?.() || '',
+  characterName: character?.name || character?.data?.name || context?.name2 || '',
   worldName: getCurrentWorldName(),
   lastMessageTime: getLastMessageTime(),
 };
@@ -834,7 +845,7 @@ try {
 }
 
 function captureGeneratedAssistantText(previousLength) {
-const chat = state.ctx?.chat;
+const chat = getLiveContext()?.chat;
 if (!Array.isArray(chat)) return '';
 const candidates = chat.slice(Math.max(0, previousLength));
 for (let index = candidates.length - 1; index >= 0; index -= 1) {
@@ -1091,6 +1102,7 @@ async function generateHiddenMusing(musing) {
 const profileId = state.settings.secondaryProfileId;
 if (!profileId) throw new Error('\u8bf7\u5148\u9009\u62e9\u526f API Connection Profile');
 const character = getCurrentCharacter();
+const context = getLiveContext();
 const profile = getConnectionProfile(profileId);
 const requestOverrides = {};
 if (state.settings.secondaryModel) requestOverrides.model = state.settings.secondaryModel;
@@ -1099,7 +1111,7 @@ const messages = [
   {
     role: 'system',
     content: [
-      `\u4f60\u662f\u89d2\u8272\u201c${character?.name || state.ctx?.name2 || '\u5f53\u524d\u89d2\u8272'}\u201d\u3002`,
+      `\u4f60\u662f\u89d2\u8272\u201c${character?.name || context?.name2 || '\u5f53\u524d\u89d2\u8272'}\u201d\u3002`,
       buildMusingPrompt(musing, 'private'),
       '\u53ea\u8f93\u51fa\u6f2b\u60f3\u672c\u8eab\uff0c\u4e0d\u8981\u63d0 API\u3001\u63d2\u4ef6\u6216\u7cfb\u7edf\u63d0\u793a\u3002',
     ].join('\n'),
@@ -1109,7 +1121,7 @@ const messages = [
     content: '[Auto Musings scheduler control] \u6267\u884c\u7cfb\u7edf\u6d88\u606f\u4e2d\u7684\u79c1\u4eba\u5185\u90e8\u6f2b\u60f3\u4efb\u52a1\u3002\u8fd9\u662f\u4e0d\u542b\u804a\u5929\u7d20\u6750\u7684\u8c03\u5ea6\u4fe1\u53f7\uff0c\u4e0d\u662f\u4eba\u7c7b\u7528\u6237\u7684\u5bf9\u8bdd\u3002',
   },
 ];
-const result = await state.ctx.ConnectionManagerRequestService.sendRequest(
+const result = await context.ConnectionManagerRequestService.sendRequest(
   profileId,
   messages,
   state.settings.hiddenMaxTokens,
@@ -1170,11 +1182,12 @@ return {
 async function saveHiddenMusingToWorldBook(musing) {
 const worldName = getCurrentWorldName();
 if (!worldName) return { saved: false, reason: '\u5f53\u524d\u89d2\u8272\u6ca1\u6709\u7ed1\u5b9a\u4e3b\u4e16\u754c\u4e66' };
-if (!state.ctx?.loadWorldInfo || !state.ctx?.saveWorldInfo) {
+const context = getLiveContext();
+if (!context?.loadWorldInfo || !context?.saveWorldInfo) {
   return { saved: false, reason: '\u5f53\u524d\u9152\u9986\u7248\u672c\u6ca1\u6709\u63d0\u4f9b\u4e16\u754c\u4e66\u5199\u5165\u63a5\u53e3' };
 }
 
-const data = await state.ctx.loadWorldInfo(worldName);
+const data = await context.loadWorldInfo(worldName);
 if (!data?.entries || typeof data.entries !== 'object') throw new Error(`\u65e0\u6cd5\u8bfb\u53d6\u4e16\u754c\u4e66\uff1a${worldName}`);
 const dateLabel = new Date(musing.ts || Date.now()).toLocaleDateString('sv-SE');
 let entry = Object.values(data.entries).find((item) => (
@@ -1187,13 +1200,13 @@ if (!entry) {
   data.entries[uid] = entry;
 }
 const time = new Date(musing.ts || Date.now()).toLocaleTimeString('zh-CN', { hour12: false });
-const ownerName = getCurrentCharacter()?.name || state.ctx?.name2 || '\u5f53\u524d\u89d2\u8272';
+const ownerName = getCurrentCharacter()?.name || context?.name2 || '\u5f53\u524d\u89d2\u8272';
 const source = musing.type === 'freeform'
   ? `\u89d2\u8272\u5185\u90e8\u79cd\u5b50\u8054\u60f3\uff1a${musing.content}\uff08\u4e0d\u662f\u7528\u6237\u8bf4\u7684\uff09`
   : '\u5386\u53f2\u804a\u5929\u8bb0\u5fc6\uff08\u4e0d\u662f\u5f53\u524d\u7528\u6237\u6d88\u606f\uff09';
 const record = `[${time}]\n[Auto Musings \u5185\u90e8\u6f2b\u60f3\u6863\u6848]\n\u5f52\u5c5e\uff1a${ownerName}\uff08assistant\uff09\n\u7528\u6237\u65b0\u6d88\u606f\uff1a\u65e0\n\u89e6\u53d1\u6765\u6e90\uff1a${source}\n\u51b3\u5b9a\uff1a\u4fdd\u7559\u5728\u5fc3\u91cc\uff0c\u672a\u53d1\u9001\u5230\u804a\u5929\u6b63\u6587\n\u6f2b\u60f3\uff1a${musing.thought}`;
 entry.content = entry.content ? `${entry.content}\n\n${record}` : record;
-await state.ctx.saveWorldInfo(worldName, data, true);
+await context.saveWorldInfo(worldName, data, true);
 return { saved: true, worldName, uid: entry.uid };
 }
 
@@ -1255,14 +1268,15 @@ return score >= activeThreshold ? 'push' : 'hold';
 }
 
 async function triggerMusing(musing, manual = false) {
-if (!state.ctx?.generate || state.generating) return false;
+const context = getLiveContext();
+if (!context?.generate || state.generating) return false;
 
 const triggerPrompt = buildMusingPrompt(musing, 'visible');
-const previousLength = Array.isArray(state.ctx?.chat) ? state.ctx.chat.length : 0;
+const previousLength = Array.isArray(context?.chat) ? context.chat.length : 0;
 
 state.generating = true;
 updateUI();
-state.ctx.setExtensionPrompt?.(
+context.setExtensionPrompt?.(
   MUSING_TRIGGER_PROMPT_ID,
   triggerPrompt,
   EXTENSION_PROMPT_POSITION.IN_CHAT,
@@ -1271,7 +1285,7 @@ state.ctx.setExtensionPrompt?.(
   EXTENSION_PROMPT_ROLE.SYSTEM,
 );
 try {
-  await state.ctx.generate('normal');
+  await context.generate('normal');
   musing.visibleText = captureGeneratedAssistantText(previousLength);
   recordEvent(manual ? '\u6d4b\u8bd5\u6f2b\u60f3\u5df2\u5b8c\u6210' : '\u6f2b\u60f3\u5df2\u63a8\u9001');
   return true;
@@ -1282,7 +1296,7 @@ try {
   recordEvent('\u751f\u6210\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u5f53\u524d API \u8fde\u63a5');
   return false;
 } finally {
-  state.ctx.setExtensionPrompt?.(
+  context.setExtensionPrompt?.(
     MUSING_TRIGGER_PROMPT_ID,
     '',
     EXTENSION_PROMPT_POSITION.IN_CHAT,
@@ -1491,6 +1505,7 @@ recordEvent('\u7528\u6237\u56de\u6765\u4e86\uff0c\u9000\u51fa\u6f2b\u60f3\u6a21\
 }
 
 function onChatChanged() {
+getLiveContext();
 state.isIdle = false;
 state.idleStartTime = null;
 resetPushCurve();
@@ -2688,3 +2703,4 @@ if (attempt < INIT_MAX_ATTEMPTS) {
 
 bootstrap();
 })();
+

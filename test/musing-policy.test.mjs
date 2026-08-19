@@ -17,6 +17,9 @@ globalThis.__autoMusingsPolicy = {
   resetPushCurve,
   pausePushCurve,
   resumePushCurve,
+  getCurrentCharacter,
+  getCurrentWorldName,
+  saveHiddenMusingToWorldBook,
   determineMusingDecision,
   musingLoop,
   setMusingLoopDependencies(dependencies) {
@@ -44,6 +47,8 @@ vm.runInNewContext(instrumentedSource, sandbox, { filename: 'index.js' });
 const policy = sandbox.__autoMusingsPolicy;
 
 beforeEach(() => {
+  sandbox.SillyTavern = undefined;
+  policy.state.ctx = null;
   policy.state.settings = { pushMode: 'dynamic' };
   policy.state.idleStartTime = null;
   policy.state.isIdle = false;
@@ -108,6 +113,64 @@ test('manual visible and hidden tests cannot cross delivery paths', () => {
   assert.equal(policy.determineMusingDecision('context', { manual: true }), 'push');
   assert.equal(policy.determineMusingDecision('freeform', { manual: true, forceHidden: true }), 'hold');
   assert.equal(policy.determineMusingDecision('context', { manual: true, forceHidden: true }), 'hold');
+});
+
+test('worldbook lookup refreshes a context captured before the character loaded', () => {
+  policy.state.ctx = { characterId: undefined, characters: [] };
+  sandbox.SillyTavern = {
+    getContext: () => ({
+      characterId: 0,
+      characters: [{
+        name: '小克',
+        data: { extensions: { world: '小克' } },
+      }],
+    }),
+  };
+
+  assert.equal(policy.getCurrentCharacter().name, '小克');
+  assert.equal(policy.getCurrentWorldName(), '小克');
+});
+
+test('hidden musings use the live context worldbook APIs and binding', async () => {
+  let loadedWorld = '';
+  let savedWorld = '';
+  let savedData = null;
+  policy.state.ctx = {
+    characterId: undefined,
+    characters: [],
+    loadWorldInfo: async () => { throw new Error('stale context used'); },
+  };
+  sandbox.SillyTavern = {
+    getContext: () => ({
+      characterId: 0,
+      name2: '小克',
+      characters: [{
+        name: '小克',
+        data: { extensions: { world: '小克' } },
+      }],
+      loadWorldInfo: async (name) => {
+        loadedWorld = name;
+        return { entries: {} };
+      },
+      saveWorldInfo: async (name, data, immediately) => {
+        savedWorld = name;
+        savedData = data;
+        assert.equal(immediately, true);
+      },
+    }),
+  };
+
+  const result = await policy.saveHiddenMusingToWorldBook({
+    ts: Date.UTC(2026, 7, 19, 0, 0, 0),
+    type: 'freeform',
+    content: '存在主义',
+    thought: '一段留在心里的念头',
+  });
+
+  assert.equal(result.saved, true);
+  assert.equal(loadedWorld, '小克');
+  assert.equal(savedWorld, '小克');
+  assert.match(Object.values(savedData.entries)[0].content, /一段留在心里的念头/);
 });
 
 test('an automatic idle roll exits before either API path', async () => {
@@ -183,3 +246,4 @@ test('an automatic hold roll uses only the hidden API path', async () => {
   assert.equal(policy.state.lastMusing.decision, 'hold');
   assert.equal(policy.state.lastMusing.status, 'hidden_saved');
 });
+
