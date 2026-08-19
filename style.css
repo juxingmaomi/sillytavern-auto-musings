@@ -99,6 +99,54 @@
   margin-bottom: 10px;
 }
 
+#auto-musings_container [hidden] {
+  display: none !important;
+}
+
+#auto-musings_container .auto-musings-secondary-fields {
+  min-width: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+}
+
+#auto-musings_container .auto-musings-field-wide {
+  grid-column: 1 / -1;
+}
+
+#auto-musings_container .auto-musings-key-state,
+#auto-musings_container .auto-musings-secondary-state {
+  margin: 8px 0;
+  padding: 7px 8px;
+  border-left: 3px solid #d49b45;
+  background: rgba(212, 155, 69, 0.08);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#auto-musings_container .auto-musings-key-state[data-tone="ready"],
+#auto-musings_container .auto-musings-secondary-state[data-tone="ready"] {
+  border-left-color: #63bd83;
+  background: rgba(99, 189, 131, 0.08);
+}
+
+#auto-musings_container .auto-musings-key-state[data-tone="active"],
+#auto-musings_container .auto-musings-secondary-state[data-tone="active"] {
+  border-left-color: var(--SmartThemeEmColor, #8bd5ff);
+  background: rgba(139, 213, 255, 0.08);
+}
+
+#auto-musings_container .auto-musings-key-state[data-tone="error"],
+#auto-musings_container .auto-musings-secondary-state[data-tone="error"] {
+  border-left-color: #e36d64;
+  background: rgba(227, 109, 100, 0.08);
+}
+
+#auto-musings_container .auto-musings-secondary-actions button {
+  flex: 1 1 calc(50% - 8px);
+  min-width: 0;
+}
+
 #auto-musings_container .auto-musings-field {
   display: flex;
   flex-direction: column;
@@ -167,6 +215,10 @@
     width: 100%;
     min-height: 44px;
     white-space: normal;
+  }
+
+  #auto-musings_container .auto-musings-field-wide {
+    grid-column: auto;
   }
 
   #auto-musings_container input:not([type="checkbox"]):not([type="radio"]),
@@ -648,3 +700,4 @@
     padding: 8px;
   }
 }
+

@@ -2,6 +2,13 @@
 
 为 SillyTavern 设计的第三方扩展。用户离开当前聊天一段时间后，角色会按照原插件的随机来源与推送倾向产生漫想；未发送到聊天正文的漫想可使用单独的副 API 生成，并保存到服务器日志和角色绑定的主世界书。
 
+## v1.5.8 更新
+
+- 隐藏漫想新增“独立副 API”模式，可单独填写 OpenAI 兼容地址、保存 Key、拉取模型、手填模型并测试连接。
+- 独立 Key 只保存在 SillyTavern 密钥仓库中，扩展设置不保存明文；按指定 Key 编号请求，不会切换主聊天当前连接或全局激活 Key。
+- 保留原有 Connection Profile 模式和设置，可从当前 Custom Profile 一键复制地址、Key 编号与模型。
+- 上传新版文件但尚未重启酒馆时，v1.5.8 前端可继续连接运行中的 v1.5.7 后台；独立模式会明确等待以后重启，不影响原 Profile 模式。
+
 ## v1.5.7 更新
 
 - 修复扩展启动早于角色聊天载入时，旧的上下文快照会把已绑定的角色主世界书误判成未绑定的问题。
@@ -112,13 +119,13 @@ enableServerPlugins: true
 1. 打开 Auto Musings 设置面板。
 2. 选择上下文读取方式。
 3. 如选择“最近 N 条消息”，填写需要读取的消息数量。
-4. 选择用于隐藏漫想的 Connection Profile。
-5. 如果该配置没有保存模型名，在“副 API 模型名”中手动填写。
+4. 隐藏漫想可继续选择 Connection Profile，或切换到“独立副 API”。
+5. 独立模式依次填写地址、保存 Key、拉取或手填模型，再点击“测试连接”。
 6. 确认当前角色已经绑定主世界书，再启用自动漫想。
 7. 如需论坛漫游，分别选择 Gemini 垃圾过滤配置和 Claude 最终阅读配置。
 8. 在 MCP 插件中只启用论坛服务器的 `cli` 工具；`presence_*` 可以保持关闭。
 
-论坛服务端调用目前支持 **Custom / OpenAI 兼容** Connection Profile。它会使用该配置保存的 `secret-id` 从 SillyTavern 的 `secrets.json` 读取对应 API Key；Key 不会保存进本扩展的设置或日志。隐藏漫想副 API 仍由当前浏览器前端直接调用，不会把该配置交给后台计时器。
+论坛服务端调用目前支持 **Custom / OpenAI 兼容** Connection Profile。它会使用该配置保存的 `secret-id` 从 SillyTavern 的 `secrets.json` 读取对应 API Key；Key 不会保存进本扩展的设置或日志。隐藏漫想的 Profile 模式仍由当前浏览器前端调用；独立模式由服务端伴侣按指定 Key 编号代理请求，从而不依赖酒馆的全局当前 Custom Key。两种模式都只由当前可见页面触发，不会开启后台计时器。
 
 ## 运行机制
 
@@ -215,4 +222,5 @@ AutoMusings.test()
 AutoMusings.openSettings()
 AutoMusings.openConsole()
 ```
+
 

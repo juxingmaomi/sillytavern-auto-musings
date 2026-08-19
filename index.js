@@ -1,8 +1,12 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.7
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.8
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.7';
+const EXTENSION_VERSION = '1.5.8';
+const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8']);
+const INDEPENDENT_SECONDARY_SERVER_VERSION = '1.5.8';
+const CUSTOM_SECRET_KEY = 'api_key_custom';
+const MANUAL_MODEL_VALUE = '__auto_musings_manual_model__';
 
 const EXTENSION_ID = 'auto_musings';
 const ROOT_ID = 'auto-musings_container';
@@ -36,8 +40,13 @@ pushMode: 'dynamic',
 logMax: 200,
 contextMode: 'default',
 contextDepth: 10,
+secondaryApiMode: 'profile',
 secondaryProfileId: '',
 secondaryModel: '',
+secondaryApiUrl: '',
+secondarySecretId: '',
+secondarySecretManaged: false,
+secondaryIndependentModel: '',
 hiddenMaxTokens: 500,
 seedWords: [...DEFAULT_SEED_WORDS],
 musingLog: [],
@@ -81,6 +90,7 @@ uiReady: false,
 unreadCount: 0,
 windowOpen: false,
 serverAvailable: false,
+serverVersion: '',
 serverStatus: null,
 serverLogs: [],
 serverPollTimer: null,
@@ -91,6 +101,11 @@ promptSnapshot: [],
 promptSnapshotAt: null,
 serverPausedReason: '',
 pageSuspended: document.visibilityState === 'hidden',
+secondaryModels: [],
+secondaryModelsLoading: false,
+secondaryKeyStatus: null,
+secondaryKeySaving: false,
+secondaryApiTesting: false,
 };
 
 let floatingPositionRepairFrame = null;
@@ -191,6 +206,14 @@ if (stage === 'server_bridge' && /version|版本/.test(lower)) {
   code = 'server_version_mismatch';
   title = '前端和后台漫想服务版本不一致';
   action = '现在不用重启；等你方便停止游玩时再重启一次酒馆。';
+} else if (code === 'secondary_backend_update_required') {
+  title = '独立副 API 后端还没有载入';
+  context.summary ||= '新版文件已经可以放到磁盘，但当前酒馆进程仍在运行旧版后台。';
+  action = '先切回 Connection Profile 使用；等你方便时重启一次酒馆，再使用独立副 API。';
+} else if (code.startsWith('secondary_api_')) {
+  title = '独立副 API 设置还不完整';
+  context.summary ||= message;
+  action = '补全独立副 API 的地址、Key 和模型名后，再手动测试连接。';
 } else if (/connection manager.*not available|profile not found|connection profile|请选择副 api/.test(lower)) {
   code = 'profile_missing';
   title = '没有找到所选的副 API 配置';
@@ -200,7 +223,9 @@ if (stage === 'server_bridge' && /version|版本/.test(lower)) {
   code = 'authentication_failed';
   title = 'API 身份验证失败';
   context.summary ||= '目标接口拒绝了当前连接配置的身份凭证，本次没有得到模型回复。';
-  action = '检查所选酒馆连接配置绑定的 Key；插件不会尝试其他 Key。';
+  action = context.profileName === '独立副 API'
+    ? '重新保存独立副 API 的 Key；插件不会尝试其他 Key。'
+    : '检查所选酒馆连接配置绑定的 Key；插件不会尝试其他 Key。';
 } else if (status === 404 || /model.*not found|unknown model|不存在.*模型/.test(lower)) {
   code = 'endpoint_or_model_missing';
   title = '接口地址或模型名不被服务端识别';
@@ -332,12 +357,26 @@ if (!['default', 'recent'].includes(settings.contextMode)) {
   settings.contextMode = DEFAULT_SETTINGS.contextMode;
   changed = true;
 }
+if (!['profile', 'independent'].includes(settings.secondaryApiMode)) {
+  settings.secondaryApiMode = DEFAULT_SETTINGS.secondaryApiMode;
+  changed = true;
+}
 if (typeof settings.secondaryProfileId !== 'string') {
   settings.secondaryProfileId = '';
   changed = true;
 }
 if (typeof settings.secondaryModel !== 'string') {
   settings.secondaryModel = '';
+  changed = true;
+}
+for (const key of ['secondaryApiUrl', 'secondarySecretId', 'secondaryIndependentModel']) {
+  if (typeof settings[key] !== 'string') {
+    settings[key] = DEFAULT_SETTINGS[key];
+    changed = true;
+  }
+}
+if (typeof settings.secondarySecretManaged !== 'boolean') {
+  settings.secondarySecretManaged = false;
   changed = true;
 }
 if (typeof settings.forumEnabled !== 'boolean') {
@@ -678,6 +717,130 @@ for (const [selector, selectedValue, placeholder] of selects) {
 }
 }
 
+function isCompatibleServerVersion(version) {
+return COMPATIBLE_SERVER_VERSIONS.has(String(version || ''));
+}
+
+function getIndependentSecondaryConfig(settings = state.settings) {
+return {
+  apiUrl: String(settings?.secondaryApiUrl || '').trim(),
+  secretId: String(settings?.secondarySecretId || '').trim(),
+  model: String(settings?.secondaryIndependentModel || '').trim(),
+};
+}
+
+function isCustomConnectionProfile(profile) {
+if (!profile) return false;
+const apiMap = getLiveContext()?.CONNECT_API_MAP?.[profile.api] || {};
+return profile.api === 'custom' || apiMap.source === 'custom';
+}
+
+function validateIndependentSecondaryConfig({ requireBackend = true, requireModel = true } = {}) {
+const config = getIndependentSecondaryConfig();
+if (!config.apiUrl) {
+  const error = new Error('请填写独立副 API 地址');
+  error.code = 'secondary_api_url_missing';
+  throw error;
+}
+try {
+  const parsed = new URL(config.apiUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('unsupported protocol');
+} catch {
+  const error = new Error('独立副 API 地址不是有效的 HTTP 或 HTTPS 地址');
+  error.code = 'secondary_api_url_invalid';
+  throw error;
+}
+if (!config.secretId) {
+  const error = new Error('请先保存或导入独立副 API Key');
+  error.code = 'secondary_api_key_missing';
+  throw error;
+}
+if (requireModel && !config.model) {
+  const error = new Error('请选择或手动填写独立副 API 模型');
+  error.code = 'secondary_api_model_missing';
+  throw error;
+}
+if (requireBackend && (!state.serverAvailable || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION)) {
+  const error = new Error(state.serverVersion === '1.5.7'
+    ? '独立副 API 后端文件已经更新，但当前进程仍是 1.5.7；以后方便时重启一次酒馆即可启用'
+    : '独立副 API 需要 Auto Musings 1.5.8 服务端伴侣连接');
+  error.code = 'secondary_backend_update_required';
+  throw error;
+}
+return config;
+}
+
+function extractModelIds(payload) {
+let candidates = [];
+if (Array.isArray(payload)) candidates = payload;
+else if (Array.isArray(payload?.data)) candidates = payload.data;
+else if (Array.isArray(payload?.models)) candidates = payload.models;
+else if (Array.isArray(payload?.data?.data)) candidates = payload.data.data;
+else if (Array.isArray(payload?.data?.models)) candidates = payload.data.models;
+
+return [...new Set(candidates.map((item) => {
+  if (typeof item === 'string') return item.trim();
+  return String(item?.id || item?.name || item?.model || '').trim();
+}).filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
+function populateSecondaryModels() {
+const root = document.getElementById(ROOT_ID);
+const select = root?.querySelector('#auto-musings-secondary-independent-model-select');
+const manualInput = root?.querySelector('#auto-musings-secondary-independent-model');
+if (!select || !manualInput) return;
+
+const current = String(state.settings.secondaryIndependentModel || '').trim();
+const models = [...new Set(state.secondaryModels.map(String).map((item) => item.trim()).filter(Boolean))];
+select.innerHTML = '<option value="">请选择模型</option>';
+for (const model of models) {
+  const option = document.createElement('option');
+  option.value = model;
+  option.textContent = model;
+  select.appendChild(option);
+}
+if (current && !models.includes(current)) {
+  const option = document.createElement('option');
+  option.value = current;
+  option.textContent = `${current}（当前填写）`;
+  select.appendChild(option);
+}
+const manualOption = document.createElement('option');
+manualOption.value = MANUAL_MODEL_VALUE;
+manualOption.textContent = '手动填写模型名';
+select.appendChild(manualOption);
+
+select.value = current || '';
+if (select.value !== current) select.value = current ? MANUAL_MODEL_VALUE : '';
+manualInput.value = current;
+manualInput.hidden = select.value !== MANUAL_MODEL_VALUE;
+}
+
+function updateSecondaryApiModeUI() {
+const root = document.getElementById(ROOT_ID);
+if (!root) return;
+const independent = state.settings.secondaryApiMode === 'independent';
+const profileFields = root.querySelector('[data-secondary-profile-fields]');
+const independentFields = root.querySelector('[data-secondary-independent-fields]');
+if (profileFields) profileFields.hidden = independent;
+if (independentFields) independentFields.hidden = !independent;
+}
+
+function importSelectedProfileIntoIndependent({ onlyWhenEmpty = false } = {}) {
+const profile = getConnectionProfile(state.settings.secondaryProfileId);
+if (!profile || !isCustomConnectionProfile(profile)) return false;
+const current = getIndependentSecondaryConfig();
+if (onlyWhenEmpty && (current.apiUrl || current.secretId || current.model)) return false;
+
+state.settings.secondaryApiUrl = String(profile['api-url'] || '').trim();
+state.settings.secondarySecretId = String(profile['secret-id'] || '').trim();
+state.settings.secondarySecretManaged = false;
+state.settings.secondaryIndependentModel = String(state.settings.secondaryModel || profile.model || '').trim();
+state.secondaryModels = [];
+saveSettings();
+return true;
+}
+
 function extractPromptContent(content) {
 if (typeof content === 'string') return content;
 if (!Array.isArray(content)) return '';
@@ -727,12 +890,154 @@ try {
 }
 if (!response.ok || data.ok === false) {
   const error = new Error(redactDiagnosticText(data.error || `后台漫想服务返回 HTTP ${response.status}`));
-  error.status = response.status;
+  error.status = Number(data.providerStatus) || response.status;
+  error.code = String(data.code || error.code || '');
+  error.endpointHost = redactDiagnosticText(data.endpointHost || '');
+  error.providerCode = redactDiagnosticText(data.providerCode || '');
+  error.providerType = redactDiagnosticText(data.providerType || '');
+  error.requestId = redactDiagnosticText(data.requestId || '');
   error.diagnostic = data.diagnostic;
+  error.responseExcerpt = redactDiagnosticText(data.responseExcerpt || text.slice(0, 2000));
+  throw error;
+}
+return data;
+}
+
+async function coreApiRequest(pathname, body = {}) {
+const context = getLiveContext();
+const response = await fetch(pathname, {
+  method: 'POST',
+  headers: context?.getRequestHeaders?.() || { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+const text = await response.text();
+let data = {};
+try {
+  data = text ? JSON.parse(text) : {};
+} catch {
+  data = { error: text };
+}
+if (!response.ok) {
+  const error = new Error(redactDiagnosticText(data.error || text || `酒馆接口返回 HTTP ${response.status}`));
+  error.status = response.status;
   error.responseExcerpt = redactDiagnosticText(text.slice(0, 2000));
   throw error;
 }
 return data;
+}
+
+async function readCustomSecretEntries() {
+const data = await coreApiRequest('/api/secrets/read');
+return Array.isArray(data?.[CUSTOM_SECRET_KEY]) ? data[CUSTOM_SECRET_KEY] : [];
+}
+
+async function refreshSecondaryKeyStatus() {
+const secretId = String(state.settings?.secondarySecretId || '').trim();
+if (!secretId) {
+  state.secondaryKeyStatus = { exists: false, reason: 'not_selected' };
+  updateUI();
+  return state.secondaryKeyStatus;
+}
+try {
+  const entries = await readCustomSecretEntries();
+  const entry = entries.find((item) => item?.id === secretId);
+  state.secondaryKeyStatus = entry
+    ? { exists: true, label: String(entry.label || ''), masked: String(entry.value || '') }
+    : { exists: false, reason: 'missing' };
+} catch (error) {
+  state.secondaryKeyStatus = { exists: false, reason: 'unavailable', error: redactDiagnosticText(error.message) };
+}
+updateUI();
+return state.secondaryKeyStatus;
+}
+
+async function storeSecondaryApiKey(apiKey) {
+const value = String(apiKey || '').trim();
+if (!value) {
+  const error = new Error('请先填写要保存的 API Key');
+  error.code = 'secondary_api_key_empty';
+  throw error;
+}
+
+const entriesBefore = await readCustomSecretEntries();
+const activeBefore = entriesBefore.find((item) => item?.active)?.id || '';
+const oldManagedId = state.settings.secondarySecretManaged
+  ? String(state.settings.secondarySecretId || '')
+  : '';
+const written = await coreApiRequest('/api/secrets/write', {
+  key: CUSTOM_SECRET_KEY,
+  value,
+  label: `Auto Musings v${EXTENSION_VERSION} 独立副 API`,
+});
+const newId = String(written?.id || '');
+if (!newId) throw new Error('酒馆密钥仓库没有返回新 Key 编号');
+
+try {
+  if (activeBefore && activeBefore !== newId) {
+    await coreApiRequest('/api/secrets/rotate', { key: CUSTOM_SECRET_KEY, id: activeBefore });
+  }
+} catch (error) {
+  try {
+    await coreApiRequest('/api/secrets/delete', { key: CUSTOM_SECRET_KEY, id: newId });
+    if (activeBefore) await coreApiRequest('/api/secrets/rotate', { key: CUSTOM_SECRET_KEY, id: activeBefore });
+  } catch (rollbackError) {
+    console.error('[Auto Musings] 恢复原 Custom API Key 失败:', rollbackError);
+  }
+  error.code = 'global_secret_restore_failed';
+  throw error;
+}
+
+if (oldManagedId && oldManagedId !== newId && oldManagedId !== activeBefore) {
+  try {
+    await coreApiRequest('/api/secrets/delete', { key: CUSTOM_SECRET_KEY, id: oldManagedId });
+  } catch (error) {
+    console.warn('[Auto Musings] 旧的插件托管 Key 未能清理，新的 Key 仍可正常使用:', error);
+  }
+}
+
+state.settings.secondarySecretId = newId;
+state.settings.secondarySecretManaged = true;
+saveSettings();
+await refreshSecondaryKeyStatus();
+return newId;
+}
+
+async function fetchSecondaryModels() {
+const config = validateIndependentSecondaryConfig({ requireBackend: true, requireModel: false });
+state.secondaryModelsLoading = true;
+updateUI();
+try {
+  const data = await serverRequest('/secondary/models', {
+    apiUrl: config.apiUrl,
+    secretId: config.secretId,
+  });
+  const models = extractModelIds(data.models || data);
+  state.secondaryModels = models;
+  populateSecondaryModels();
+  if (models.length === 0) {
+    window.toastr?.warning?.('接口没有返回模型列表，请手动填写模型名');
+  } else {
+    window.toastr?.success?.(`已拉取 ${models.length} 个模型`);
+  }
+  return models;
+} finally {
+  state.secondaryModelsLoading = false;
+  updateUI();
+}
+}
+
+async function testIndependentSecondaryApi() {
+const config = validateIndependentSecondaryConfig({ requireBackend: true });
+state.secondaryApiTesting = true;
+updateUI();
+try {
+  const data = await serverRequest('/secondary/test', config);
+  if (!String(data.content || '').trim()) throw new Error('测试请求成功，但模型返回了空内容');
+  return data.content;
+} finally {
+  state.secondaryApiTesting = false;
+  updateUI();
+}
 }
 
 function getServerSyncPayload() {
@@ -881,6 +1186,7 @@ try {
 } catch (error) {
   console.error('[Auto Musings] Server polling failed:', error);
   state.serverAvailable = false;
+  state.serverVersion = '';
   state.serverStatus = null;
   state.serverPausedReason = '后台保存连接中断，当前页面仍会继续漫想';
   if (state.serverPollTimer) clearInterval(state.serverPollTimer);
@@ -898,7 +1204,7 @@ try {
 async function initializeServerBridge() {
 try {
   const status = await serverRequest('/status');
-  if (status.version !== EXTENSION_VERSION) {
+  if (!isCompatibleServerVersion(status.version)) {
     try {
       await serverRequest('/sync', getServerSyncPayload());
     } catch (disableError) {
@@ -909,6 +1215,7 @@ try {
     throw error;
   }
   state.serverAvailable = true;
+  state.serverVersion = String(status.version || '');
   state.serverPausedReason = '';
   await syncServerState();
   await pollServer();
@@ -919,6 +1226,7 @@ try {
   return true;
 } catch (error) {
   state.serverAvailable = false;
+  state.serverVersion = '';
   state.serverStatus = null;
   const versionMismatch = error?.code === 'server_version_mismatch';
   state.serverPausedReason = versionMismatch ? '后台保存服务等待以后重启更新，当前页面仍会继续漫想' : '';
@@ -1099,14 +1407,8 @@ return '';
 }
 
 async function generateHiddenMusing(musing) {
-const profileId = state.settings.secondaryProfileId;
-if (!profileId) throw new Error('\u8bf7\u5148\u9009\u62e9\u526f API Connection Profile');
 const character = getCurrentCharacter();
 const context = getLiveContext();
-const profile = getConnectionProfile(profileId);
-const requestOverrides = {};
-if (state.settings.secondaryModel) requestOverrides.model = state.settings.secondaryModel;
-if (profile?.['secret-id']) requestOverrides.secret_id = profile['secret-id'];
 const messages = [
   {
     role: 'system',
@@ -1121,13 +1423,32 @@ const messages = [
     content: '[Auto Musings scheduler control] \u6267\u884c\u7cfb\u7edf\u6d88\u606f\u4e2d\u7684\u79c1\u4eba\u5185\u90e8\u6f2b\u60f3\u4efb\u52a1\u3002\u8fd9\u662f\u4e0d\u542b\u804a\u5929\u7d20\u6750\u7684\u8c03\u5ea6\u4fe1\u53f7\uff0c\u4e0d\u662f\u4eba\u7c7b\u7528\u6237\u7684\u5bf9\u8bdd\u3002',
   },
 ];
-const result = await context.ConnectionManagerRequestService.sendRequest(
-  profileId,
-  messages,
-  state.settings.hiddenMaxTokens,
-  { stream: false, extractData: true, includePreset: true, includeInstruct: true },
-  requestOverrides,
-);
+let result;
+if (state.settings.secondaryApiMode === 'independent') {
+  const config = validateIndependentSecondaryConfig({ requireBackend: true });
+  result = await serverRequest('/secondary/generate', {
+    ...config,
+    messages,
+    maxTokens: state.settings.hiddenMaxTokens,
+  });
+} else {
+  const profileId = state.settings.secondaryProfileId;
+  if (!profileId) throw new Error('\u8bf7\u5148\u9009\u62e9\u526f API Connection Profile');
+  if (!context?.ConnectionManagerRequestService?.sendRequest) {
+    throw new Error('Connection Manager 当前不可用');
+  }
+  const profile = getConnectionProfile(profileId);
+  const requestOverrides = {};
+  if (state.settings.secondaryModel) requestOverrides.model = state.settings.secondaryModel;
+  if (profile?.['secret-id']) requestOverrides.secret_id = profile['secret-id'];
+  result = await context.ConnectionManagerRequestService.sendRequest(
+    profileId,
+    messages,
+    state.settings.hiddenMaxTokens,
+    { stream: false, extractData: true, includePreset: true, includeInstruct: true },
+    requestOverrides,
+  );
+}
 const thought = extractHiddenContent(result);
 if (!thought) throw new Error('\u526f API \u8fd4\u56de\u4e86\u7a7a\u5185\u5bb9');
 return thought;
@@ -1349,6 +1670,8 @@ try {
     if (musing.type !== 'idle') {
       recordEvent('\u6b63\u5728\u901a\u8fc7\u526f API \u751f\u6210\u9690\u85cf\u6f2b\u60f3');
       const profile = getConnectionProfile(state.settings.secondaryProfileId);
+      const independentConfig = getIndependentSecondaryConfig();
+      const independent = state.settings.secondaryApiMode === 'independent';
       try {
         musing.status = 'generating_hidden';
         musing.thought = await generateHiddenMusing(musing);
@@ -1359,9 +1682,11 @@ try {
         pushLogEntry(musing);
         recordDiagnostic(error, {
           stage: 'hidden_musing',
-          profileName: profile?.name || '',
-          model: state.settings.secondaryModel || profile?.model || '',
-          endpointHost: getSafeEndpointHost(profile?.['api-url'] || ''),
+          profileName: independent ? '独立副 API' : (profile?.name || ''),
+          model: independent
+            ? independentConfig.model
+            : (state.settings.secondaryModel || profile?.model || ''),
+          endpointHost: getSafeEndpointHost(independent ? independentConfig.apiUrl : (profile?.['api-url'] || '')),
           operationId: musing.id,
           impact: '这次隐藏漫想没有生成，因此也没有写入世界书；触发记录仍然保留。',
           preservation: '触发来源、时间、随机判定和错误已经保存；没有生成出来的正文无法保存。',
@@ -1650,12 +1975,77 @@ if (hiddenTestButton) {
 }
 const contextDepth = root.querySelector('#auto-musings-context-depth');
 if (contextDepth) contextDepth.disabled = state.settings.contextMode !== 'recent';
+const secondaryBusy = state.secondaryKeySaving || state.secondaryModelsLoading || state.secondaryApiTesting;
+const secondaryConfig = getIndependentSecondaryConfig();
+const keyInput = root.querySelector('#auto-musings-secondary-api-key');
+if (keyInput) keyInput.disabled = state.secondaryKeySaving;
+const importButton = root.querySelector('#auto-musings-secondary-import-profile');
+if (importButton) importButton.disabled = secondaryBusy || !state.settings.secondaryProfileId;
+const saveKeyButton = root.querySelector('#auto-musings-secondary-save-key');
+if (saveKeyButton) saveKeyButton.disabled = secondaryBusy;
+const fetchModelsButton = root.querySelector('#auto-musings-secondary-fetch-models');
+if (fetchModelsButton) {
+  fetchModelsButton.disabled = secondaryBusy
+    || !secondaryConfig.apiUrl
+    || !secondaryConfig.secretId
+    || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION;
+  const label = fetchModelsButton.querySelector('span');
+  if (label) label.textContent = state.secondaryModelsLoading ? '正在拉取模型' : '拉取模型';
+}
+const secondaryTestButton = root.querySelector('#auto-musings-secondary-test-api');
+if (secondaryTestButton) {
+  secondaryTestButton.disabled = secondaryBusy
+    || !secondaryConfig.apiUrl
+    || !secondaryConfig.secretId
+    || !secondaryConfig.model
+    || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION;
+  const label = secondaryTestButton.querySelector('span');
+  if (label) label.textContent = state.secondaryApiTesting ? '正在测试连接' : '测试连接';
+}
+const keyState = root.querySelector('[data-secondary-key-state]');
+if (keyState) {
+  if (state.secondaryKeySaving) {
+    keyState.textContent = '正在把 Key 保存到酒馆密钥仓库…';
+    keyState.dataset.tone = 'active';
+  } else if (!secondaryConfig.secretId) {
+    keyState.textContent = '尚未保存或导入独立 Key。';
+    keyState.dataset.tone = 'standby';
+  } else if (state.secondaryKeyStatus?.exists) {
+    keyState.textContent = `已关联酒馆密钥仓库：${state.secondaryKeyStatus.label || state.secondaryKeyStatus.masked || 'Key 已保存'}`;
+    keyState.dataset.tone = 'ready';
+  } else if (state.secondaryKeyStatus?.reason === 'missing') {
+    keyState.textContent = '原先关联的 Key 已不在酒馆密钥仓库中，请重新保存或导入。';
+    keyState.dataset.tone = 'error';
+  } else if (state.secondaryKeyStatus?.reason === 'unavailable') {
+    keyState.textContent = '暂时无法读取酒馆密钥仓库状态。';
+    keyState.dataset.tone = 'error';
+  } else {
+    keyState.textContent = '正在检查独立 Key…';
+    keyState.dataset.tone = 'standby';
+  }
+}
+const secondaryApiState = root.querySelector('[data-secondary-api-state]');
+if (secondaryApiState) {
+  if (state.serverVersion === '1.5.7') {
+    secondaryApiState.textContent = '新版文件已就位后仍需以后重启一次酒馆，独立副 API 才会启用；现在可继续使用 Connection Profile。';
+    secondaryApiState.dataset.tone = 'standby';
+  } else if (!state.serverAvailable) {
+    secondaryApiState.textContent = '独立副 API 需要服务端伴侣连接；当前可继续使用 Connection Profile。';
+    secondaryApiState.dataset.tone = 'error';
+  } else if (state.serverVersion === INDEPENDENT_SECONDARY_SERVER_VERSION) {
+    secondaryApiState.textContent = '独立副 API 已就绪；请求按指定 Key 编号发送，不会改变主聊天当前连接。';
+    secondaryApiState.dataset.tone = 'ready';
+  } else {
+    secondaryApiState.textContent = '正在确认独立副 API 后端版本…';
+    secondaryApiState.dataset.tone = 'standby';
+  }
+}
 const serverState = root.querySelector('[data-auto-musings-server-state]');
 if (serverState) {
   serverState.textContent = state.serverPausedReason
     ? `${state.serverPausedReason}；当前页面仍按原作者机制运行。`
     : (state.serverAvailable
-      ? '后台保存与论坛工具已连接；计时、掷骰和正文生成只在当前页面运行'
+      ? `后台保存与论坛工具已连接（后台 v${state.serverVersion || '未知'}）；计时、掷骰和正文生成只在当前页面运行`
       : '后台保存服务未连接；当前页面仍会运行，日志暂存在酒馆设置中');
   serverState.dataset.connected = state.serverAvailable ? 'true' : 'false';
 }
@@ -1884,20 +2274,68 @@ return `
               <span>最近上下文条数（1–100）</span>
               <input id="auto-musings-context-depth" class="text_pole" type="number" min="1" max="100" step="1">
             </label>
-            <label class="auto-musings-field" for="auto-musings-secondary-profile">
-              <span>隐藏漫想使用的副 API</span>
-              <select id="auto-musings-secondary-profile" class="text_pole"></select>
-            </label>
-            <label class="auto-musings-field" for="auto-musings-secondary-model">
-              <span>副 API 模型名（配置留空时填）</span>
-              <input id="auto-musings-secondary-model" class="text_pole" type="text" placeholder="例如 claude-sonnet-4-5">
+            <label class="auto-musings-field" for="auto-musings-secondary-api-mode">
+              <span>隐藏漫想副 API 模式</span>
+              <select id="auto-musings-secondary-api-mode" class="text_pole">
+                <option value="profile">酒馆 Connection Profile</option>
+                <option value="independent">独立副 API</option>
+              </select>
             </label>
             <label class="auto-musings-field" for="auto-musings-hidden-max-tokens">
               <span>隐藏漫想最大 Tokens</span>
               <input id="auto-musings-hidden-max-tokens" class="text_pole" type="number" min="64" max="4096" step="16">
             </label>
           </div>
-          <div class="auto-musings-hint">历史消息会明确标记 role=user / role=assistant 和发送者名称；未发送的漫想才会写入角色主世界书。副 API 失败时当前步骤立即停止并记日志，不会自动换配置、模型或 Key。</div>
+          <div class="auto-musings-secondary-fields" data-secondary-profile-fields>
+            <div class="auto-musings-grid">
+              <label class="auto-musings-field" for="auto-musings-secondary-profile">
+                <span>隐藏漫想使用的副 API</span>
+                <select id="auto-musings-secondary-profile" class="text_pole"></select>
+              </label>
+              <label class="auto-musings-field" for="auto-musings-secondary-model">
+                <span>副 API 模型名（配置留空时填）</span>
+                <input id="auto-musings-secondary-model" class="text_pole" type="text" placeholder="例如 claude-sonnet-4-5">
+              </label>
+            </div>
+          </div>
+          <div class="auto-musings-secondary-fields" data-secondary-independent-fields hidden>
+            <div class="auto-musings-grid">
+              <label class="auto-musings-field auto-musings-field-wide" for="auto-musings-secondary-api-url">
+                <span>独立副 API 地址</span>
+                <input id="auto-musings-secondary-api-url" class="text_pole" type="url" inputmode="url" placeholder="例如 https://api.example.com/v1">
+              </label>
+              <label class="auto-musings-field" for="auto-musings-secondary-api-key">
+                <span>独立副 API Key</span>
+                <input id="auto-musings-secondary-api-key" class="text_pole" type="password" autocomplete="new-password" placeholder="只在保存时使用，不会回填">
+              </label>
+              <label class="auto-musings-field" for="auto-musings-secondary-independent-model-select">
+                <span>独立副 API 模型</span>
+                <select id="auto-musings-secondary-independent-model-select" class="text_pole"></select>
+                <input id="auto-musings-secondary-independent-model" class="text_pole" type="text" placeholder="手动填写模型名" hidden>
+              </label>
+            </div>
+            <div class="auto-musings-key-state" data-secondary-key-state>尚未保存独立 Key。</div>
+            <div class="auto-musings-actions auto-musings-secondary-actions">
+              <button id="auto-musings-secondary-import-profile" type="button" class="menu_button menu_button_icon" title="复制当前 Connection Profile 的地址、Key 编号和模型">
+                <i class="fa-solid fa-file-import"></i>
+                <span>从当前 Profile 导入</span>
+              </button>
+              <button id="auto-musings-secondary-save-key" type="button" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-key"></i>
+                <span>保存 Key</span>
+              </button>
+              <button id="auto-musings-secondary-fetch-models" type="button" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-list"></i>
+                <span>拉取模型</span>
+              </button>
+              <button id="auto-musings-secondary-test-api" type="button" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-plug-circle-check"></i>
+                <span>测试连接</span>
+              </button>
+            </div>
+            <div class="auto-musings-secondary-state" data-secondary-api-state>独立副 API 不会改变主聊天的连接配置。</div>
+          </div>
+          <div class="auto-musings-hint">历史消息会明确标记 role=user / role=assistant 和发送者名称；未发送的漫想才会写入角色主世界书。独立 Key 保存在酒馆密钥仓库，不写入扩展设置；副 API 失败时当前步骤立即停止并记日志，不会自动换配置、模型或 Key。</div>
           <div class="auto-musings-server-state" data-auto-musings-server-state>正在检查服务端伴侣…</div>
         </details>
         <details class="auto-musings-section auto-musings-forum-section">
@@ -2024,8 +2462,17 @@ root.querySelector('#auto-musings-context-depth')?.value,
 100,
 DEFAULT_SETTINGS.contextDepth,
 ));
+state.settings.secondaryApiMode = root.querySelector('#auto-musings-secondary-api-mode')?.value === 'independent'
+  ? 'independent'
+  : 'profile';
 state.settings.secondaryProfileId = root.querySelector('#auto-musings-secondary-profile')?.value || '';
 state.settings.secondaryModel = root.querySelector('#auto-musings-secondary-model')?.value?.trim() || '';
+state.settings.secondaryApiUrl = root.querySelector('#auto-musings-secondary-api-url')?.value?.trim() || '';
+const independentModelSelect = root.querySelector('#auto-musings-secondary-independent-model-select');
+const independentManualModel = root.querySelector('#auto-musings-secondary-independent-model');
+state.settings.secondaryIndependentModel = independentModelSelect?.value === MANUAL_MODEL_VALUE
+  ? (independentManualModel?.value?.trim() || '')
+  : (independentModelSelect?.value?.trim() || '');
 state.settings.hiddenMaxTokens = Math.round(clamp(
 root.querySelector('#auto-musings-hidden-max-tokens')?.value,
 64,
@@ -2073,6 +2520,7 @@ trimLogs();
 saveSettings();
 restartTimers();
 scheduleServerSync(100);
+updateSecondaryApiModeUI();
 updateUI();
 }
 
@@ -2087,7 +2535,10 @@ root.querySelector('#auto-musings-push-mode').value = state.settings.pushMode;
 root.querySelector('#auto-musings-log-max').value = state.settings.logMax;
 root.querySelector('#auto-musings-context-mode').value = state.settings.contextMode;
 root.querySelector('#auto-musings-context-depth').value = state.settings.contextDepth;
+root.querySelector('#auto-musings-secondary-api-mode').value = state.settings.secondaryApiMode;
 root.querySelector('#auto-musings-secondary-model').value = state.settings.secondaryModel;
+root.querySelector('#auto-musings-secondary-api-url').value = state.settings.secondaryApiUrl;
+root.querySelector('#auto-musings-secondary-independent-model').value = state.settings.secondaryIndependentModel;
 root.querySelector('#auto-musings-hidden-max-tokens').value = state.settings.hiddenMaxTokens;
 root.querySelector('#auto-musings-forum-enabled').checked = !!state.settings.forumEnabled;
 root.querySelector('#auto-musings-forum-probability').value = state.settings.forumProbability;
@@ -2098,6 +2549,8 @@ root.querySelector('#auto-musings-forum-filter-model').value = state.settings.fo
 root.querySelector('#auto-musings-forum-review-model').value = state.settings.forumReviewModel;
 root.querySelector('#auto-musings-forum-mcp-server').value = state.settings.forumMcpServerName;
 populateConnectionProfiles();
+populateSecondaryModels();
+updateSecondaryApiModeUI();
 root.querySelector('#auto-musings-seeds-input').value = getActiveSeedWords().join('\n');
 updateUI();
 }
@@ -2480,6 +2933,68 @@ for (const [profileSelector, modelSelector] of [
     readSettingsFromUI();
   });
 }
+root.querySelector('#auto-musings-secondary-api-mode')?.addEventListener('change', () => {
+  if (state.settings.secondaryApiMode === 'independent') {
+    importSelectedProfileIntoIndependent({ onlyWhenEmpty: true });
+  }
+  fillSettingsUI();
+  void refreshSecondaryKeyStatus();
+});
+root.querySelector('#auto-musings-secondary-independent-model-select')?.addEventListener('change', (event) => {
+  const manualInput = root.querySelector('#auto-musings-secondary-independent-model');
+  const manual = event.currentTarget.value === MANUAL_MODEL_VALUE;
+  if (manualInput) {
+    manualInput.hidden = !manual;
+    if (!manual) manualInput.value = event.currentTarget.value || '';
+    if (manual) manualInput.focus();
+  }
+  readSettingsFromUI();
+});
+root.querySelector('#auto-musings-secondary-import-profile')?.addEventListener('click', async () => {
+  readSettingsFromUI();
+  if (!importSelectedProfileIntoIndependent()) {
+    window.toastr?.warning?.('请选择一个 Custom / OpenAI 兼容的 Connection Profile 后再导入');
+    return;
+  }
+  fillSettingsUI();
+  await refreshSecondaryKeyStatus();
+  window.toastr?.success?.('已复制当前 Profile 的地址、Key 编号和模型；原 Profile 没有被修改');
+});
+root.querySelector('#auto-musings-secondary-save-key')?.addEventListener('click', async () => {
+  const input = root.querySelector('#auto-musings-secondary-api-key');
+  state.secondaryKeySaving = true;
+  updateUI();
+  try {
+    await storeSecondaryApiKey(input?.value || '');
+    if (input) input.value = '';
+    window.toastr?.success?.('独立副 API Key 已保存；主聊天当前 Key 已保持原样');
+  } catch (error) {
+    console.error('[Auto Musings] 保存独立副 API Key 失败:', error);
+    window.toastr?.error?.(`保存 Key 失败：${redactDiagnosticText(error.message)}`);
+  } finally {
+    state.secondaryKeySaving = false;
+    updateUI();
+  }
+});
+root.querySelector('#auto-musings-secondary-fetch-models')?.addEventListener('click', async () => {
+  readSettingsFromUI();
+  try {
+    await fetchSecondaryModels();
+  } catch (error) {
+    console.error('[Auto Musings] 拉取独立副 API 模型失败:', error);
+    window.toastr?.error?.(`拉取模型失败：${redactDiagnosticText(error.message)}`);
+  }
+});
+root.querySelector('#auto-musings-secondary-test-api')?.addEventListener('click', async () => {
+  readSettingsFromUI();
+  try {
+    await testIndependentSecondaryApi();
+    window.toastr?.success?.('独立副 API 连接和模型调用都正常');
+  } catch (error) {
+    console.error('[Auto Musings] 独立副 API 测试失败:', error);
+    window.toastr?.error?.(`测试失败：${redactDiagnosticText(error.message)}`);
+  }
+});
 root.querySelector('#auto-musings-context-mode')?.addEventListener('change', updateUI);
 root.querySelector('#auto-musings-test')?.addEventListener('click', () => {
 musingLoop(true, false).catch((error) => console.error('[Auto Musings] \u53ef\u89c1\u6f2b\u60f3\u6d4b\u8bd5\u5931\u8d25:', error));
@@ -2537,6 +3052,7 @@ root.querySelector('#auto-musings-open-console')?.addEventListener('click', () =
 toggleFloatingWindow(true);
 });
 fillSettingsUI();
+void refreshSecondaryKeyStatus();
 }
 
 function addSettingsPanel(attempt = 0) {
@@ -2703,4 +3219,5 @@ if (attempt < INIT_MAX_ATTEMPTS) {
 
 bootstrap();
 })();
+
 

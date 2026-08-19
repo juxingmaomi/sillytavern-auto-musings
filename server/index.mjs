@@ -15,7 +15,7 @@ import {
 } from './forum-core.mjs';
 
 const PLUGIN_ID = 'auto-musings';
-const PLUGIN_VERSION = '1.5.7';
+const PLUGIN_VERSION = '1.5.8';
 const DATA_DIRECTORY = 'auto-musings';
 const HISTORY_FILE = 'history.jsonl';
 const PENDING_FILE = 'pending.json';
@@ -471,6 +471,11 @@ function getChatCompletionsUrl(apiUrl) {
     return `${normalized}/chat/completions`;
 }
 
+function getModelsUrl(apiUrl) {
+    const normalized = apiUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+    return `${normalized}/models`;
+}
+
 function getEndpointHost(apiUrl) {
     try {
         return new URL(apiUrl).host;
@@ -497,6 +502,131 @@ function extractResponseText(data) {
         || extractTextContent(data?.content)
         || extractTextContent(data?.response)
         || extractTextContent(data?.message?.content);
+}
+
+function createSecondaryConfigError(message, code) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+}
+
+function sanitizeSecondaryConfig(value, { requireModel = true } = {}) {
+    const source = value && typeof value === 'object' ? value : {};
+    const apiUrl = normalizeString(source.apiUrl, 2_000).replace(/\/+$/, '');
+    const secretId = normalizeString(source.secretId, 300);
+    const model = normalizeString(source.model, 500);
+    if (!apiUrl) throw createSecondaryConfigError('请填写独立副 API 地址', 'secondary_api_url_missing');
+    try {
+        const parsed = new URL(apiUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('unsupported protocol');
+    } catch {
+        throw createSecondaryConfigError('独立副 API 地址不是有效的 HTTP 或 HTTPS 地址', 'secondary_api_url_invalid');
+    }
+    if (!secretId) throw createSecondaryConfigError('请先保存或导入独立副 API Key', 'secondary_api_key_missing');
+    if (requireModel && !model) {
+        throw createSecondaryConfigError('请选择或手动填写独立副 API 模型', 'secondary_api_model_missing');
+    }
+    return { apiUrl, secretId, model };
+}
+
+function extractModelIds(data) {
+    let candidates = [];
+    if (Array.isArray(data)) candidates = data;
+    else if (Array.isArray(data?.data)) candidates = data.data;
+    else if (Array.isArray(data?.models)) candidates = data.models;
+    else if (Array.isArray(data?.data?.data)) candidates = data.data.data;
+    else if (Array.isArray(data?.data?.models)) candidates = data.data.models;
+
+    return [...new Set(candidates.map((item) => {
+        if (typeof item === 'string') return normalizeString(item, 500);
+        return normalizeString(item?.id || item?.name || item?.model, 500);
+    }).filter(Boolean))].sort((left, right) => left.localeCompare(right)).slice(0, 5_000);
+}
+
+function getSecondaryErrorPayload(error) {
+    return {
+        ok: false,
+        error: redactSecrets(String(error?.message || error || '独立副 API 请求失败')),
+        code: normalizeString(error?.code, 200) || 'secondary_api_request_failed',
+        providerStatus: Number(error?.status) || null,
+        endpointHost: normalizeString(error?.endpointHost, 500),
+        providerCode: normalizeString(error?.providerCode, 500),
+        providerType: normalizeString(error?.providerType, 500),
+        requestId: normalizeString(error?.requestId, 500),
+        responseExcerpt: redactSecrets(normalizeString(error?.responseExcerpt, 2_000)),
+    };
+}
+
+function sendSecondaryError(response, error) {
+    const configurationError = String(error?.code || '').startsWith('secondary_api_');
+    return response.status(configurationError ? 400 : 502).send(getSecondaryErrorPayload(error));
+}
+
+async function requestIndependentCompletion(directories, config, messages, options = {}) {
+    return requestProfileCompletion({ directories }, {
+        id: 'auto-musings-independent-secondary',
+        name: '独立副 API',
+        api: 'custom',
+        source: 'custom',
+        apiUrl: config.apiUrl,
+        secretId: config.secretId,
+        model: config.model,
+    }, messages, options);
+}
+
+async function fetchIndependentModels(directories, config) {
+    const apiKey = readActiveCustomSecret(directories, config.secretId);
+    if (!apiKey) {
+        const error = new Error('独立副 API 绑定的 Custom API Key 已不存在或不可读取');
+        error.code = 'secret_not_found';
+        throw error;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    const endpointHost = getEndpointHost(config.apiUrl);
+    try {
+        const response = await fetch(getModelsUrl(config.apiUrl), {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: controller.signal,
+        });
+        const rawText = await response.text();
+        let data = null;
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseError) {
+            const error = new Error('模型列表接口返回的不是可解析的 JSON', { cause: parseError });
+            error.code = 'invalid_json_response';
+            error.status = response.status;
+            error.endpointHost = endpointHost;
+            error.responseExcerpt = redactSecrets(rawText.slice(0, 2_000));
+            throw error;
+        }
+        if (!response.ok || data?.error) {
+            const message = data?.error?.message || data?.message || rawText || `HTTP ${response.status}`;
+            const error = new Error(redactSecrets(String(message)));
+            error.status = response.status;
+            error.endpointHost = endpointHost;
+            error.providerCode = data?.error?.code || '';
+            error.providerType = data?.error?.type || '';
+            error.requestId = response.headers.get('x-request-id') || response.headers.get('request-id') || '';
+            error.responseExcerpt = redactSecrets(rawText.slice(0, 2_000));
+            throw error;
+        }
+        return extractModelIds(data);
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            const timeoutError = new Error('拉取模型列表超时');
+            timeoutError.name = 'AbortError';
+            timeoutError.endpointHost = endpointHost;
+            throw timeoutError;
+        }
+        if (error && typeof error === 'object' && !error.endpointHost) error.endpointHost = endpointHost;
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 async function requestProfileCompletion(job, profile, messages, options = {}) {
@@ -1187,6 +1317,14 @@ function syncJob(request) {
     return job;
 }
 
+export const __testing = Object.freeze({
+    extractModelIds,
+    getChatCompletionsUrl,
+    getModelsUrl,
+    readActiveCustomSecret,
+    sanitizeSecondaryConfig,
+});
+
 export async function init(router) {
     router.post('/status', (request, response) => {
         const job = jobs.get(getUserKey(request));
@@ -1223,6 +1361,53 @@ export async function init(router) {
         const limit = Math.round(clamp(request.body?.limit, 20, 2000, 200));
         const history = appendHistoryRecords(request.user.directories, request.body?.records, limit);
         return response.send({ ok: true, history });
+    });
+
+    router.post('/secondary/models', async (request, response) => {
+        try {
+            const config = sanitizeSecondaryConfig(request.body, { requireModel: false });
+            const models = await fetchIndependentModels(request.user.directories, config);
+            return response.send({ ok: true, models });
+        } catch (error) {
+            console.error('[Auto Musings Server] Independent secondary model lookup failed:', redactSecrets(error?.message || error));
+            return sendSecondaryError(response, error);
+        }
+    });
+
+    router.post('/secondary/test', async (request, response) => {
+        try {
+            const config = sanitizeSecondaryConfig(request.body);
+            const content = await requestIndependentCompletion(request.user.directories, config, [
+                {
+                    role: 'system',
+                    content: 'This is a connection test. Reply with a very short confirmation and nothing else.',
+                },
+                { role: 'user', content: 'Connection test.' },
+            ], { maxTokens: 64, temperature: 0, timeoutMs: 60_000 });
+            return response.send({ ok: true, content });
+        } catch (error) {
+            console.error('[Auto Musings Server] Independent secondary connection test failed:', redactSecrets(error?.message || error));
+            return sendSecondaryError(response, error);
+        }
+    });
+
+    router.post('/secondary/generate', async (request, response) => {
+        try {
+            const config = sanitizeSecondaryConfig(request.body);
+            const messages = sanitizePromptSnapshot(request.body?.messages);
+            if (messages.length === 0) {
+                throw createSecondaryConfigError('隐藏漫想请求没有可用消息', 'secondary_api_messages_missing');
+            }
+            const content = await requestIndependentCompletion(request.user.directories, config, messages, {
+                maxTokens: Math.round(clamp(request.body?.maxTokens, 64, 4_096, 500)),
+                temperature: 0.7,
+                timeoutMs: 120_000,
+            });
+            return response.send({ ok: true, content });
+        } catch (error) {
+            console.error('[Auto Musings Server] Independent hidden musing failed:', redactSecrets(error?.message || error));
+            return sendSecondaryError(response, error);
+        }
     });
 
     router.post('/forum/maybe', (request, response) => {
@@ -1280,4 +1465,5 @@ export async function exit() {
     jobs.clear();
     console.log('[Auto Musings Server] Stopped.');
 }
+
 

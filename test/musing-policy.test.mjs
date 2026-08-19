@@ -20,8 +20,18 @@ globalThis.__autoMusingsPolicy = {
   getCurrentCharacter,
   getCurrentWorldName,
   saveHiddenMusingToWorldBook,
+  generateHiddenMusing,
+  extractModelIds,
+  isCompatibleServerVersion,
+  validateIndependentSecondaryConfig,
+  storeSecondaryApiKey,
   determineMusingDecision,
   musingLoop,
+  setSecondaryDependencies(dependencies) {
+    if (dependencies.serverRequest) serverRequest = dependencies.serverRequest;
+    if (dependencies.coreApiRequest) coreApiRequest = dependencies.coreApiRequest;
+    if (dependencies.getConnectionProfile) getConnectionProfile = dependencies.getConnectionProfile;
+  },
   setMusingLoopDependencies(dependencies) {
     rollMusing = dependencies.rollMusing;
     generateHiddenMusing = dependencies.generateHiddenMusing;
@@ -40,6 +50,7 @@ globalThis.__autoMusingsPolicy = {
 const sandbox = {
   console: { log() {}, warn() {}, error() {} },
   document: { visibilityState: 'visible' },
+  URL,
 };
 
 vm.runInNewContext(instrumentedSource, sandbox, { filename: 'index.js' });
@@ -56,6 +67,10 @@ beforeEach(() => {
   policy.state.musingInFlight = false;
   policy.state.generating = false;
   policy.state.lastMusing = null;
+  policy.state.serverAvailable = false;
+  policy.state.serverVersion = '';
+  policy.state.secondaryKeyStatus = null;
+  policy.state.uiReady = false;
   policy.resetPushCurve();
 });
 
@@ -246,4 +261,182 @@ test('an automatic hold roll uses only the hidden API path', async () => {
   assert.equal(policy.state.lastMusing.decision, 'hold');
   assert.equal(policy.state.lastMusing.status, 'hidden_saved');
 });
+
+test('profile mode keeps using ConnectionManagerRequestService with its bound secret', async () => {
+  let captured = null;
+  const profile = {
+    id: 'secondary-profile',
+    name: 'Secondary',
+    model: 'profile-model',
+    'secret-id': 'profile-secret',
+  };
+  policy.setSecondaryDependencies({ getConnectionProfile: () => profile });
+  policy.state.settings = {
+    secondaryApiMode: 'profile',
+    secondaryProfileId: profile.id,
+    secondaryModel: 'override-model',
+    hiddenMaxTokens: 500,
+    contextMode: 'default',
+  };
+  policy.state.ctx = {
+    name2: '小克',
+    ConnectionManagerRequestService: {
+      sendRequest: async (...args) => {
+        captured = args;
+        return { content: 'profile thought' };
+      },
+    },
+  };
+
+  const result = await policy.generateHiddenMusing({ type: 'freeform', content: 'seed' });
+
+  assert.equal(result, 'profile thought');
+  assert.equal(captured[0], profile.id);
+  assert.equal(captured[2], 500);
+  assert.equal(captured[4].model, 'override-model');
+  assert.equal(captured[4].secret_id, 'profile-secret');
+});
+
+test('independent mode sends its URL, exact secret ID and model to the companion', async () => {
+  let captured = null;
+  policy.setSecondaryDependencies({
+    serverRequest: async (pathname, body) => {
+      captured = { pathname, body };
+      return { content: 'independent thought' };
+    },
+  });
+  policy.state.serverAvailable = true;
+  policy.state.serverVersion = '1.5.8';
+  policy.state.settings = {
+    secondaryApiMode: 'independent',
+    secondaryApiUrl: 'https://secondary.example/v1',
+    secondarySecretId: 'secondary-secret-id',
+    secondaryIndependentModel: 'secondary-model',
+    hiddenMaxTokens: 640,
+    contextMode: 'default',
+  };
+  policy.state.ctx = { name2: '小克' };
+
+  const result = await policy.generateHiddenMusing({ type: 'freeform', content: 'seed' });
+
+  assert.equal(result, 'independent thought');
+  assert.equal(captured.pathname, '/secondary/generate');
+  assert.equal(captured.body.apiUrl, 'https://secondary.example/v1');
+  assert.equal(captured.body.secretId, 'secondary-secret-id');
+  assert.equal(captured.body.model, 'secondary-model');
+  assert.equal(captured.body.maxTokens, 640);
+  assert.equal(captured.body.messages.length, 2);
+});
+
+test('independent mode rejects incomplete settings before making a request', () => {
+  policy.state.serverAvailable = true;
+  policy.state.serverVersion = '1.5.8';
+  policy.state.settings = {
+    secondaryApiUrl: 'https://secondary.example/v1',
+    secondarySecretId: 'secondary-secret-id',
+    secondaryIndependentModel: '',
+  };
+
+  assert.throws(
+    () => policy.validateIndependentSecondaryConfig(),
+    (error) => error.code === 'secondary_api_model_missing',
+  );
+});
+
+test('model parser supports OpenAI, models-array and direct-array responses', () => {
+  assert.deepEqual(
+    Array.from(policy.extractModelIds({ data: [{ id: 'b' }, { id: 'a' }] })),
+    ['a', 'b'],
+  );
+  assert.deepEqual(
+    Array.from(policy.extractModelIds({ models: [{ name: 'model-c' }, 'model-d'] })),
+    ['model-c', 'model-d'],
+  );
+  assert.deepEqual(
+    Array.from(policy.extractModelIds([{ model: 'model-e' }, { id: 'model-f' }])),
+    ['model-e', 'model-f'],
+  );
+});
+
+test('saving an independent key restores the previous global key and preserves imported secrets', async () => {
+  const calls = [];
+  let readCount = 0;
+  policy.setSecondaryDependencies({
+    coreApiRequest: async (pathname, body) => {
+      calls.push({ pathname, body });
+      if (pathname === '/api/secrets/read') {
+        readCount += 1;
+        return {
+          api_key_custom: readCount === 1
+            ? [
+              { id: 'main-key', active: true, label: 'Main' },
+              { id: 'imported-key', active: false, label: 'Imported' },
+            ]
+            : [
+              { id: 'main-key', active: true, label: 'Main' },
+              { id: 'imported-key', active: false, label: 'Imported' },
+              { id: 'new-key', active: false, label: 'Auto Musings' },
+            ],
+        };
+      }
+      if (pathname === '/api/secrets/write') return { id: 'new-key' };
+      return {};
+    },
+  });
+  policy.state.settings = {
+    secondarySecretId: 'imported-key',
+    secondarySecretManaged: false,
+  };
+  policy.state.ctx = { saveSettingsDebounced() {} };
+
+  const id = await policy.storeSecondaryApiKey('private-key-value');
+
+  assert.equal(id, 'new-key');
+  assert.equal(policy.state.settings.secondarySecretId, 'new-key');
+  assert.equal(policy.state.settings.secondarySecretManaged, true);
+  assert.ok(calls.some((call) => call.pathname === '/api/secrets/rotate' && call.body.id === 'main-key'));
+  assert.equal(calls.some((call) => call.pathname === '/api/secrets/delete' && call.body.id === 'imported-key'), false);
+});
+
+test('updating a managed key never replaces it when it is the global active key', async () => {
+  const calls = [];
+  let readCount = 0;
+  policy.setSecondaryDependencies({
+    coreApiRequest: async (pathname, body) => {
+      calls.push({ pathname, body });
+      if (pathname === '/api/secrets/read') {
+        readCount += 1;
+        return {
+          api_key_custom: readCount === 1
+            ? [{ id: 'old-managed-key', active: true, label: 'Auto Musings old' }]
+            : [
+              { id: 'old-managed-key', active: true, label: 'Auto Musings old' },
+              { id: 'new-managed-key', active: false, label: 'Auto Musings new' },
+            ],
+        };
+      }
+      if (pathname === '/api/secrets/write') return { id: 'new-managed-key' };
+      return {};
+    },
+  });
+  policy.state.settings = {
+    secondarySecretId: 'old-managed-key',
+    secondarySecretManaged: true,
+  };
+  policy.state.ctx = { saveSettingsDebounced() {} };
+
+  await policy.storeSecondaryApiKey('replacement-value');
+
+  assert.ok(calls.some((call) => call.pathname === '/api/secrets/rotate' && call.body.id === 'old-managed-key'));
+  assert.equal(calls.some((call) => call.pathname === '/api/secrets/delete' && call.body.id === 'old-managed-key'), false);
+  assert.equal(policy.state.settings.secondarySecretId, 'new-managed-key');
+});
+
+test('v1.5.8 frontend explicitly accepts the running v1.5.7 companion only', () => {
+  assert.equal(policy.isCompatibleServerVersion('1.5.7'), true);
+  assert.equal(policy.isCompatibleServerVersion('1.5.8'), true);
+  assert.equal(policy.isCompatibleServerVersion('1.5.6'), false);
+  assert.equal(policy.isCompatibleServerVersion('2.0.0'), false);
+});
+
 
