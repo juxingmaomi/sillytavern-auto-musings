@@ -1,9 +1,9 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.8
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.9
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.8';
-const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8']);
+const EXTENSION_VERSION = '1.5.9';
+const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8', '1.5.9']);
 const INDEPENDENT_SECONDARY_SERVER_VERSION = '1.5.8';
 const CUSTOM_SECRET_KEY = 'api_key_custom';
 const MANUAL_MODEL_VALUE = '__auto_musings_manual_model__';
@@ -1304,34 +1304,10 @@ if (pool.length === 0) return null;
 for (let attempt = 0; attempt < 5; attempt += 1) {
   const message = pool[Math.floor(Math.random() * pool.length)];
   if (message?.content && message.content.length > 10) {
-    return { ...message, content: truncateHistoricalExcerpt(message.content) };
+    return { ...message };
   }
 }
 return null;
-}
-
-function truncateHistoricalExcerpt(value, limit = 100) {
-const text = String(value || '').trim();
-if (text.length <= limit) return text;
-let excerpt = text.slice(0, limit);
-const partialTag = excerpt.match(/<\/?[A-Za-z][^>]*$/);
-if (partialTag?.index !== undefined) excerpt = excerpt.slice(0, partialTag.index).trimEnd();
-const openTags = [];
-const tagPattern = /<\/?([A-Za-z][\w:-]*)\b[^>]*>/g;
-let tagMatch;
-while ((tagMatch = tagPattern.exec(excerpt))) {
-  const name = tagMatch[1].toLowerCase();
-  const isClosing = tagMatch[0].startsWith('</');
-  const isSelfClosing = tagMatch[0].endsWith('/>') || ['br', 'hr', 'img', 'input', 'link', 'meta'].includes(name);
-  if (isClosing) {
-    const matchingIndex = openTags.map((tag) => tag.name).lastIndexOf(name);
-    if (matchingIndex >= 0) openTags.splice(matchingIndex, 1);
-  } else if (!isSelfClosing) {
-    openTags.push({ name, index: tagMatch.index });
-  }
-}
-if (openTags.length > 0) excerpt = excerpt.slice(0, openTags[0].index).trimEnd();
-return `${excerpt}\n[Excerpt truncated here.]`;
 }
 
 function getActiveSeedWords() {
@@ -1468,7 +1444,7 @@ return {
   addMemo: false,
   order: 100,
   position: 0,
-  disable: false,
+  disable: true,
   ignoreBudget: false,
   excludeRecursion: false,
   preventRecursion: false,

@@ -21,6 +21,7 @@ globalThis.__autoMusingsPolicy = {
   getCurrentWorldName,
   saveHiddenMusingToWorldBook,
   generateHiddenMusing,
+  getRandomChatSnippet,
   extractModelIds,
   isCompatibleServerVersion,
   validateIndependentSecondaryConfig,
@@ -185,7 +186,34 @@ test('hidden musings use the live context worldbook APIs and binding', async () 
   assert.equal(result.saved, true);
   assert.equal(loadedWorld, '小克');
   assert.equal(savedWorld, '小克');
-  assert.match(Object.values(savedData.entries)[0].content, /一段留在心里的念头/);
+  const entry = Object.values(savedData.entries)[0];
+  assert.match(entry.content, /一段留在心里的念头/);
+  assert.equal(entry.disable, true);
+});
+
+test('random historical snippets keep the complete original message', () => {
+  const fullMessage = '<ambience>安静</ambience>\n\n' + '完整的正文应当原样传递，不能在动作或标签中间截断。'.repeat(12);
+  const chat = [
+    { mes: fullMessage, is_user: false, name: '小克', send_date: '2026-08-28 03:38:00' },
+    ...Array.from({ length: 10 }, (_, index) => ({
+      mes: `最近消息 ${index}`,
+      is_user: index % 2 === 0,
+      name: index % 2 === 0 ? '薇薇' : '小克',
+      send_date: `2026-08-28 10:${String(index).padStart(2, '0')}:00`,
+    })),
+  ];
+  policy.state.ctx = {
+    name1: '薇薇',
+    name2: '小克',
+    chat,
+  };
+
+  const snippet = policy.getRandomChatSnippet();
+
+  assert.ok(snippet);
+  assert.equal(snippet.role, 'assistant');
+  assert.equal(snippet.content, fullMessage);
+  assert.equal(snippet.content.includes('[Excerpt truncated here.]'), false);
 });
 
 test('an automatic idle roll exits before either API path', async () => {
@@ -432,9 +460,10 @@ test('updating a managed key never replaces it when it is the global active key'
   assert.equal(policy.state.settings.secondarySecretId, 'new-managed-key');
 });
 
-test('v1.5.8 frontend explicitly accepts the running v1.5.7 companion only', () => {
+test('v1.5.9 frontend accepts the running 1.5.7 through 1.5.9 companions', () => {
   assert.equal(policy.isCompatibleServerVersion('1.5.7'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.8'), true);
+  assert.equal(policy.isCompatibleServerVersion('1.5.9'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.6'), false);
   assert.equal(policy.isCompatibleServerVersion('2.0.0'), false);
 });
