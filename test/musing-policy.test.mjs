@@ -460,10 +460,11 @@ test('updating a managed key never replaces it when it is the global active key'
   assert.equal(policy.state.settings.secondarySecretId, 'new-managed-key');
 });
 
-test('v1.5.9 frontend accepts the running 1.5.7 through 1.5.9 companions', () => {
+test('v1.5.10 frontend accepts the running 1.5.7 through 1.5.10 companions', () => {
   assert.equal(policy.isCompatibleServerVersion('1.5.7'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.8'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.9'), true);
+  assert.equal(policy.isCompatibleServerVersion('1.5.10'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.6'), false);
   assert.equal(policy.isCompatibleServerVersion('2.0.0'), false);
 });

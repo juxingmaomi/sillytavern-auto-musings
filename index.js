@@ -1,9 +1,9 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.9
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.10
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.9';
-const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8', '1.5.9']);
+const EXTENSION_VERSION = '1.5.10';
+const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8', '1.5.9', '1.5.10']);
 const INDEPENDENT_SECONDARY_SERVER_VERSION = '1.5.8';
 const CUSTOM_SECRET_KEY = 'api_key_custom';
 const MANUAL_MODEL_VALUE = '__auto_musings_manual_model__';
