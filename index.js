@@ -1,10 +1,13 @@
-// Auto Musings - 前端漫想与持久日志控制面板 v1.5.10
+// Auto Musings - 前端漫想与持久日志控制面板 v1.5.11
 (function () {
 'use strict';
 
-const EXTENSION_VERSION = '1.5.10';
-const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8', '1.5.9', '1.5.10']);
-const INDEPENDENT_SECONDARY_SERVER_VERSION = '1.5.8';
+const EXTENSION_VERSION = '1.5.11';
+const COMPATIBLE_SERVER_VERSIONS = new Set(['1.5.7', '1.5.8', '1.5.9', '1.5.10', '1.5.11']);
+// 独立副 API 端点从 1.5.8 服务端开始提供；1.5.9 起的服务端沿用同一套 /secondary/* 契约。
+// 新版服务端发布时必须同步登记到这里，否则前端会把兼容的后台误判成需要升级。
+const INDEPENDENT_SECONDARY_SERVER_VERSIONS = new Set(['1.5.8', '1.5.9', '1.5.10', '1.5.11']);
+const INDEPENDENT_SECONDARY_MIN_SERVER_VERSION = '1.5.8';
 const CUSTOM_SECRET_KEY = 'api_key_custom';
 const MANUAL_MODEL_VALUE = '__auto_musings_manual_model__';
 
@@ -721,6 +724,10 @@ function isCompatibleServerVersion(version) {
 return COMPATIBLE_SERVER_VERSIONS.has(String(version || ''));
 }
 
+function supportsIndependentSecondary(version) {
+return INDEPENDENT_SECONDARY_SERVER_VERSIONS.has(String(version || ''));
+}
+
 function getIndependentSecondaryConfig(settings = state.settings) {
 return {
   apiUrl: String(settings?.secondaryApiUrl || '').trim(),
@@ -760,10 +767,10 @@ if (requireModel && !config.model) {
   error.code = 'secondary_api_model_missing';
   throw error;
 }
-if (requireBackend && (!state.serverAvailable || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION)) {
+if (requireBackend && (!state.serverAvailable || !supportsIndependentSecondary(state.serverVersion))) {
   const error = new Error(state.serverVersion === '1.5.7'
     ? '独立副 API 后端文件已经更新，但当前进程仍是 1.5.7；以后方便时重启一次酒馆即可启用'
-    : '独立副 API 需要 Auto Musings 1.5.8 服务端伴侣连接');
+    : `独立副 API 需要 Auto Musings ${INDEPENDENT_SECONDARY_MIN_SERVER_VERSION} 或更新的服务端伴侣连接（当前后台 ${state.serverVersion || '未连接'}）`);
   error.code = 'secondary_backend_update_required';
   throw error;
 }
@@ -1964,7 +1971,7 @@ if (fetchModelsButton) {
   fetchModelsButton.disabled = secondaryBusy
     || !secondaryConfig.apiUrl
     || !secondaryConfig.secretId
-    || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION;
+    || !supportsIndependentSecondary(state.serverVersion);
   const label = fetchModelsButton.querySelector('span');
   if (label) label.textContent = state.secondaryModelsLoading ? '正在拉取模型' : '拉取模型';
 }
@@ -1974,7 +1981,7 @@ if (secondaryTestButton) {
     || !secondaryConfig.apiUrl
     || !secondaryConfig.secretId
     || !secondaryConfig.model
-    || state.serverVersion !== INDEPENDENT_SECONDARY_SERVER_VERSION;
+    || !supportsIndependentSecondary(state.serverVersion);
   const label = secondaryTestButton.querySelector('span');
   if (label) label.textContent = state.secondaryApiTesting ? '正在测试连接' : '测试连接';
 }
@@ -2008,7 +2015,7 @@ if (secondaryApiState) {
   } else if (!state.serverAvailable) {
     secondaryApiState.textContent = '独立副 API 需要服务端伴侣连接；当前可继续使用 Connection Profile。';
     secondaryApiState.dataset.tone = 'error';
-  } else if (state.serverVersion === INDEPENDENT_SECONDARY_SERVER_VERSION) {
+  } else if (supportsIndependentSecondary(state.serverVersion)) {
     secondaryApiState.textContent = '独立副 API 已就绪；请求按指定 Key 编号发送，不会改变主聊天当前连接。';
     secondaryApiState.dataset.tone = 'ready';
   } else {

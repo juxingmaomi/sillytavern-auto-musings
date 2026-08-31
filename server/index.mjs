@@ -15,7 +15,9 @@ import {
 } from './forum-core.mjs';
 
 const PLUGIN_ID = 'auto-musings';
-const PLUGIN_VERSION = '1.5.10';
+// 升级此版本号时，必须同步登记到 index.js 的 COMPATIBLE_SERVER_VERSIONS
+// 与 INDEPENDENT_SECONDARY_SERVER_VERSIONS，否则前端会把本服务端误判成需要升级。
+const PLUGIN_VERSION = '1.5.11';
 const DATA_DIRECTORY = 'auto-musings';
 const HISTORY_FILE = 'history.jsonl';
 const PENDING_FILE = 'pending.json';

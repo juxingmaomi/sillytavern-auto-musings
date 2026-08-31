@@ -24,6 +24,7 @@ globalThis.__autoMusingsPolicy = {
   getRandomChatSnippet,
   extractModelIds,
   isCompatibleServerVersion,
+  supportsIndependentSecondary,
   validateIndependentSecondaryConfig,
   storeSecondaryApiKey,
   determineMusingDecision,
@@ -460,13 +461,74 @@ test('updating a managed key never replaces it when it is the global active key'
   assert.equal(policy.state.settings.secondarySecretId, 'new-managed-key');
 });
 
-test('v1.5.10 frontend accepts the running 1.5.7 through 1.5.10 companions', () => {
+test('v1.5.11 frontend accepts the running 1.5.7 through 1.5.11 companions', () => {
   assert.equal(policy.isCompatibleServerVersion('1.5.7'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.8'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.9'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.10'), true);
+  assert.equal(policy.isCompatibleServerVersion('1.5.11'), true);
   assert.equal(policy.isCompatibleServerVersion('1.5.6'), false);
   assert.equal(policy.isCompatibleServerVersion('2.0.0'), false);
+});
+
+// 回归护栏：服务端版本号每次上调，都必须同时出现在这两个集合里。
+// 漏登记就是 1.5.9/1.5.10 那次 secondary_backend_update_required 的成因。
+test('every compatible companion at or above 1.5.8 also supports the independent secondary API', () => {
+  const source = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
+  const serverSource = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
+  const pluginVersion = serverSource.match(/const PLUGIN_VERSION = '([^']+)'/)?.[1];
+
+  assert.ok(pluginVersion, 'server PLUGIN_VERSION not found');
+  assert.equal(
+    policy.isCompatibleServerVersion(pluginVersion), true,
+    `服务端 ${pluginVersion} 未登记到 COMPATIBLE_SERVER_VERSIONS`,
+  );
+  assert.equal(
+    policy.supportsIndependentSecondary(pluginVersion), true,
+    `服务端 ${pluginVersion} 未登记到 INDEPENDENT_SECONDARY_SERVER_VERSIONS`,
+  );
+
+  const frontendVersion = source.match(/const EXTENSION_VERSION = '([^']+)'/)?.[1];
+  assert.equal(frontendVersion, pluginVersion, '前端与服务端版本号不一致');
+});
+
+test('independent secondary accepts every companion that ships the /secondary endpoints', () => {
+  assert.equal(policy.supportsIndependentSecondary('1.5.8'), true);
+  assert.equal(policy.supportsIndependentSecondary('1.5.9'), true);
+  assert.equal(policy.supportsIndependentSecondary('1.5.10'), true);
+  // 1.5.7 及更早的服务端没有 /secondary/* 端点，必须继续提示重启。
+  assert.equal(policy.supportsIndependentSecondary('1.5.7'), false);
+  assert.equal(policy.supportsIndependentSecondary(''), false);
+});
+
+test('independent mode does not demand an upgrade when the companion is newer than 1.5.8', () => {
+  for (const version of ['1.5.9', '1.5.10']) {
+    policy.state.serverAvailable = true;
+    policy.state.serverVersion = version;
+    policy.state.settings = {
+      secondaryApiUrl: 'https://secondary.example/v1',
+      secondarySecretId: 'secondary-secret-id',
+      secondaryIndependentModel: 'secondary-model',
+    };
+
+    const config = policy.validateIndependentSecondaryConfig();
+    assert.equal(config.apiUrl, 'https://secondary.example/v1', `companion ${version} should be accepted`);
+  }
+});
+
+test('independent mode still asks a 1.5.7 companion for a restart', () => {
+  policy.state.serverAvailable = true;
+  policy.state.serverVersion = '1.5.7';
+  policy.state.settings = {
+    secondaryApiUrl: 'https://secondary.example/v1',
+    secondarySecretId: 'secondary-secret-id',
+    secondaryIndependentModel: 'secondary-model',
+  };
+
+  assert.throws(
+    () => policy.validateIndependentSecondaryConfig(),
+    (error) => error.code === 'secondary_backend_update_required' && /重启一次酒馆/.test(error.message),
+  );
 });
 
 
